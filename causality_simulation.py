@@ -6,6 +6,7 @@ from IPython.display import display
 from inspect import signature
 from graphviz import Digraph
 from scipy.stats import pearsonr
+import plotly.express as px
 
 class CausalNode:
   def __init__(self, vartype, func, name, causes=None, min=0, max=100):
@@ -111,7 +112,7 @@ class CausalNode:
     data = {}
     for name in self.network:
       data[name] = np.array([d[name] for d in data_dicts])
-    return data
+    return pd.DataFrame(data)
 
   def drawNetwork(self):
     g = Digraph(name=self.name)
@@ -465,8 +466,8 @@ class Experiment:
           plt.ylabel(y)
           plt.show()
           r = pearsonr(self.data[name][x], self.data[name][y])
-          print("Correlation (r): ", round(r[0], 3))
-          print("P-value: ", round(r[1], 3))
+          print("Correlation (r): ", '{0:#.3f}'.format(r[0]))
+          print("P-value: ", '{0:#.3g}'.format(r[1]))
     return f
 
   def choosePlot(self, x, y, name):
@@ -476,19 +477,21 @@ class Experiment:
     xType, yType = self.node.nodeDict()[x].vartype, self.node.nodeDict()[y].vartype
     xData, yData = self.data[name][x], self.data[name][y]
     if xType == 'categorical' and yType != 'categorical':
-      colors = plt.cm.BuPu(np.linspace(0, 1, len(np.unique(xData))))
-      df = pd.DataFrame()
-      plot = plt.bar(xData, yData, color=colors)
-      #nonsense plot
+      plot = plt.hist(yData)
     elif xType != 'categorical' and yType == 'categorical':
-      colors = plt.cm.BuPu(np.linspace(0, 1, len(np.unique(yData))))
-      plot = plt.barh(yData, xData, color=colors)
-      #nonsense plot
+      plot = plt.hist(xData)
     elif xType == 'continuous' and yType == 'continuous':
       plot = plt.scatter(xData, yData, c='purple')
     else:
       heatmap = plt.hist2d(xData, yData, bins=30, cmap=plt.cm.BuPu)
       plt.colorbar(heatmap[3])
+
+  def plotOrchard(self, name, gradient=None):
+    """Takes in the name of the group in the experiment and the name of the 
+    variable used to create the color gradient"""
+    fig = px.scatter(self.data[name], x="x", y="y", color=gradient, title='Orchard Layout:' + name, hover_data=self.data[name].keys())
+    fig.update_layout({'height':650, 'width':650})
+    fig.show()
 
 # Uniformly distributed from 0m to 1000m
 x_node = CausalNode('continuous', uniform(0, 1000), name='x', min=0, max=1000)
