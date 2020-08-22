@@ -201,6 +201,11 @@ def dependentGaussian(x1, mean1, std1, x2, mean2, std2):
     return abs(np.random.normal(mean, std))
   return f
 
+def categoricalLin(data): # data: {'category': (m, c), etc}
+  def f(x, y): # y is the category, x is the input value
+    return data[y][0] * x + data[y][1]
+  return f
+
 class InterveneOptions:
   def __init__(self, node, disabled=None):
     if disabled == None:
@@ -279,7 +284,7 @@ class InterveneOptions:
       self.range_rand.disabled = False
 
 class GroupSettings:
-  def __init__(self, node, disabled):
+  def __init__(self, node, disabled, show='all'):
     self.node = node
     self.group_name_text = wd.Label(value='Name the Group', layout=wd.Layout(width='150px'))
     self.group_name = wd.Text(layout=wd.Layout(width='150px'))
@@ -289,16 +294,14 @@ class GroupSettings:
     self.N_input_box = wd.HBox([self.N_input_text, self.N_input])
     self.opts_single = {}
     for m, n in node.network.items():
-      if m == node.name:
+      if show != 'all' and m not in show:
         continue
       d = None
       if m in disabled:
         d = [False, True, True]
       self.opts_single[m] = InterveneOptions(n, disabled=d)
     to_display = [self.group_name_box, self.N_input_box]
-    for m in sorted(node.network.keys()): # Ensure alphabetical display order
-      if m == node.name:
-        continue
+    for m in sorted(self.opts_single.keys()): # Ensure alphabetical display order
       to_display.append(self.opts_single[m].box)
     self.box = wd.VBox(to_display, layout=wd.Layout(margin='0 0 20px 0'))
 
@@ -370,11 +373,11 @@ class Experiment:
     self.data = {} # {group_name: {node_name: [val, ...], ...}, ...}
     self.group_names = []
 
-  def setting(self, disabled):
+  def setting(self, disabled=[], show='all'):
     '''
     disabled: array of names
     '''
-    settings = [GroupSettings(self.node, disabled)]
+    settings = [GroupSettings(self.node, disabled, show=show)]
     add_group = wd.Button(description='Add Another Group')
     submit = wd.Button(description='Perform Experiment')
     settings[0].display()
@@ -382,25 +385,25 @@ class Experiment:
     add_group.on_click(self.addGroup(settings, disabled))
     submit.on_click(self.doExperiment(settings))
 
-  def fixedSetting(self, config):
+  def fixedSetting(self, config, show='all'):
     '''
     For demonstrating a preset experiment, disable all options and display the settings
     config: array of intervenes
     '''
     settings = []
     for c in config:
-      s = GroupSettings(self.node, disabled=[])
+      s = GroupSettings(self.node, disabled=[], show=show)
       s.applyIntervene(c)
       s.greyAll()
       s.display()
       settings.append(s)
     self.doExperiment(settings)()
 
-  def addGroup(self, settings, disabled):
+  def addGroup(self, settings, disabled, show='all'):
     def f(sender):
       buttons = settings[-1].box.children[-2:]
       settings[-1].remove() # Remove the buttons from previous group
-      settings.append(GroupSettings(self.node, disabled))
+      settings.append(GroupSettings(self.node, disabled=disabled, show=show))
       settings[-1].append(*buttons) # Add buttons to the newly added group
       settings[-1].display()
     return f
@@ -431,22 +434,23 @@ class Experiment:
       self.group_names = names
     return f
 
-  def plotSetting(self):
-    node_names = sorted([*self.node.network])
+  def plotSetting(self, show='all'):
+    node_names = sorted([*self.node.network]) if show == 'all' else sorted(show)
     settings = [PlotSettings(node_names)]
     add_plot = wd.Button(description='Add Another Plot')
     submit = wd.Button(description='Draw Plots')
     settings[0].display()
     settings[0].append(add_plot, submit)
-    add_plot.on_click(self.addPlot(settings))
+    add_plot.on_click(self.addPlot(settings, show=show))
     submit.on_click(self.plot(settings))
 
-  def addPlot(self, settings):
+  def addPlot(self, settings, show):
     def f(sender):
       buttons = settings[-1].box.children[-2:]
       settings[-1].remove() # Remove the buttons from previous group
       node_names = sorted(self.node.network.keys())
-      settings.append(PlotSettings(node_names))
+      names = node_names if show == 'all' else show
+      settings.append(PlotSettings(names))
       settings[-1].append(*buttons) # Add buttons to the newly added group
       settings[-1].display()
     return f
@@ -495,12 +499,14 @@ x_node = CausalNode('continuous', uniform(0, 1000), name='x', min=0, max=1000)
 y_node = CausalNode('continuous', uniform(0, 1000), name='y', min=0, max=1000)
 # Gaussian+absolute value, more wind in south
 wind_node = CausalNode('continuous', lambda x,y: dependentGaussian(0, 2, 5, 1000, 10, 10)(x) + dependentGaussian(0, 6, 3, 1000, 2, 4)(x), name='Wind Speed', causes=[x_node, y_node], min=0, max=40)
-kombucha_node = CausalNode('categorical', constant(0), name='Kombucha')
+suppliment_node = CausalNode('categorical', constant('Water'), name='Suppliment')
 fertilizer_node = CausalNode('continuous', gaussian(10, 2), 'Fertilizer', min=0, max=20)
+suppliment_soil_effects = {'Water': (1, 0), 'Kombucha': (0.6, -5), 'Milk': (1.2, 10), 'Tea': (0.7, 0)}
 # Fertilizer improves soil, kombucha destroys it
-soil_node = CausalNode('continuous', linearFunc(0, 1, 0, 1, 0.2, 0, linear(0, 10, 20, 100, fuzz=5)), 'Soil Quality', causes=[fertilizer_node, kombucha_node], min=0, max=100)
+soil_node = CausalNode('continuous', lambda x, y: categoricalLin(suppliment_soil_effects)(linear(0, 10, 20, 100, fuzz=5)(x), y), 'Soil Quality', causes=[fertilizer_node, suppliment_node], min=0, max=100)
+suppliment_bees_effects = {'Water': (1, 0), 'Kombucha': (1.5, 0), 'Milk': (1, 0), 'Tea': (1.3, 0)}
 # Beehive in north, bees avoid wind, love kombucha
-bees_node = CausalNode('discrete', linearFunc(0, 1, 0, 1, 1.5, 0, dependentPoisson((0, 0, 250), (500, 30, 10), (0, 30, 40)), fuzz=5, integer=True), name='Number of Bees', causes=[x_node, wind_node, kombucha_node], min=0, max=300)
+bees_node = CausalNode('discrete', lambda x, y, z: categoricalLin(suppliment_bees_effects)(dependentPoisson((0, 0, 250), (500, 30, 10), (0, 30, 40))(x, y), z), name='Number of Bees', causes=[x_node, wind_node, suppliment_node], min=0, max=300)
 # Bees and good soil improve fruiting
 fruit_node = CausalNode('discrete', dependentPoisson((0, 0, 0), (100, 200, 40), (100, 50, 16)), name='Number of Fruits', causes=[soil_node, bees_node])
 # fruit_node.drawNetwork()
