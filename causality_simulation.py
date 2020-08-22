@@ -490,10 +490,13 @@ class Experiment:
       heatmap = plt.hist2d(xData, yData, bins=30, cmap=plt.cm.BuPu)
       plt.colorbar(heatmap[3])
 
-  def plotOrchard(self, name, gradient=None):
+  def plotOrchard(self, name, gradient=None, hover_data='all'):
     """Takes in the name of the group in the experiment and the name of the 
     variable used to create the color gradient"""
-    fig = px.scatter(self.data[name], x="x", y="y", color=gradient, title='Orchard Layout:' + name, hover_data=self.data[name].keys())
+    if hover_data == 'all':
+      hover_data = self.data[name].keys()
+    print(hover_data)
+    fig = px.scatter(self.data[name], x="x", y="y", color=gradient, title='Orchard Layout:' + name, hover_data=hover_data)
     fig.update_layout({'height':650, 'width':650})
     fig.show()
 
