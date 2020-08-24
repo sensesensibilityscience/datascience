@@ -10,7 +10,7 @@ from scipy.stats import pearsonr
 import plotly.express as px
 
 class CausalNode:
-  def __init__(self, vartype, func, name, causes=None, min=0, max=100):
+  def __init__(self, vartype, func, name, causes=None, min=0, max=100, categories=[]):
     '''
     name: string, must be unique
     vartype: 'categorical', 'discrete', 'continuous'
@@ -30,6 +30,7 @@ class CausalNode:
     self.vartype = vartype
     self.min = min
     self.max = max
+    self.categories = categories
 
   def traceNetwork(self):
     '''
@@ -84,7 +85,7 @@ class CausalNode:
     Generates n data points. Returns dict of name, np.array(values) pairs
     intervene: {node_name: [type, other_args]}
     intervene format:
-    ['fixed', val]
+    ['fixed', val] (val could be number or name of category)
     ['range', start, end]
     ['range_rand', start, end]
     ['array', [...]] array size must be n
@@ -209,6 +210,9 @@ def categoricalLin(data): # data: {'category': (m, c), etc}
   return f
 
 class InterveneOptions:
+  '''
+  Line of radio button options for intervening in a single variable
+  '''
   def __init__(self, node, disabled=None):
     if disabled == None:
       self.disabled = [False, False, False]
@@ -219,8 +223,14 @@ class InterveneOptions:
     self.none = wd.RadioButtons(options=['None'], disabled=self.disabled[0], layout=wd.Layout(width='70px'))
     self.fixed = wd.RadioButtons(options=['Fixed'], disabled=self.disabled[1], layout=wd.Layout(width='70px'))
     self.fixed.index = None
-    self.fixed_arg = wd.BoundedFloatText(disabled=True, layout=wd.Layout(width='70px'))
-    self.range_visibility = 'hidden' if node.vartype == 'categorical' else 'visible'
+    self.is_categorical = node.vartype == 'categorical'
+    if self.is_categorical:
+      print(node.categories)
+      fixed_arg = wd.Dropdown(options=node.categories, disabled=True, layout=wd.Layout(width='70px'))
+    else:
+      fixed_arg = wd.BoundedFloatText(disabled=True, layout=wd.Layout(width='70px'))
+    self.fixed_arg = fixed_arg
+    self.range_visibility = 'hidden' if self.is_categorical else 'visible'
     self.range = wd.RadioButtons(options=['Range'], disabled=self.disabled[2], layout=wd.Layout(width='70px', visibility=self.range_visibility))
     self.range.index = None
     self.range_arg1 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
@@ -245,7 +255,8 @@ class InterveneOptions:
 
   def applyIntervene(self, intervene):
     if intervene[0] == 'fixed':
-      self.fixed.index = 0
+      if self.is_categorical:
+        self.fixed.index = 0
       self.fixed_arg.value = intervene[1]
     elif intervene[0] == 'range':
       self.range.index = 0
@@ -260,7 +271,8 @@ class InterveneOptions:
   # Radio button .index = None if off, .index = 0 if on
   def none_observer(self, sender):
     if self.none.index == 0:
-      self.fixed.index = None
+      if self.is_categorical:
+        self.fixed.index = None
       self.fixed_arg.disabled = True
       self.range.index = None
       self.range_arg1.disabled = True
@@ -279,7 +291,8 @@ class InterveneOptions:
   def range_observer(self, sender):
     if self.range.index == 0:
       self.none.index = None
-      self.fixed.index = None
+      if self.is_categorical:
+        self.fixed.index = None
       self.fixed_arg.disabled = True
       self.range_arg1.disabled = False
       self.range_arg2.disabled = False
@@ -505,7 +518,7 @@ x_node = CausalNode('continuous', uniform(0, 1000), name='x', min=0, max=1000)
 y_node = CausalNode('continuous', uniform(0, 1000), name='y', min=0, max=1000)
 # Gaussian+absolute value, more wind in south
 wind_node = CausalNode('continuous', lambda x,y: dependentGaussian(0, 2, 5, 1000, 10, 10)(x) + dependentGaussian(0, 6, 3, 1000, 2, 4)(x), name='Wind Speed', causes=[x_node, y_node], min=0, max=40)
-suppliment_node = CausalNode('categorical', constant('Water'), name='Suppliment')
+suppliment_node = CausalNode('categorical', constant('Water'), name='Suppliment', categories=['Water', 'Kombucha', 'Milk', 'Tea'])
 fertilizer_node = CausalNode('continuous', gaussian(10, 2), 'Fertilizer', min=0, max=20)
 suppliment_soil_effects = {'Water': (1, 0), 'Kombucha': (0.6, -5), 'Milk': (1.2, 10), 'Tea': (0.7, 0)}
 # Fertilizer improves soil, kombucha destroys it
