@@ -225,7 +225,6 @@ class InterveneOptions:
     self.fixed.index = None
     self.is_categorical = node.vartype == 'categorical'
     if self.is_categorical:
-      print(node.categories)
       fixed_arg = wd.Dropdown(options=node.categories, disabled=True, layout=wd.Layout(width='70px'))
     else:
       fixed_arg = wd.BoundedFloatText(disabled=True, layout=wd.Layout(width='70px'))
@@ -255,8 +254,7 @@ class InterveneOptions:
 
   def applyIntervene(self, intervene):
     if intervene[0] == 'fixed':
-      if self.is_categorical:
-        self.fixed.index = 0
+      self.fixed.index = 0
       self.fixed_arg.value = intervene[1]
     elif intervene[0] == 'range':
       self.range.index = 0
@@ -331,10 +329,12 @@ class GroupSettings:
     to_display = self.box.children[0:-2]
     self.box.children = to_display
 
-  def greyAll(self):
-    self.group_name.disabled = True
-    self.N_input.disabled = True
-    for m, o in self.opts_single.items():
+  def grey(self, to_grey='all', grey_group_name=True, grey_N=True):
+    self.group_name.disabled = grey_group_name
+    self.N_input.disabled = grey_N
+    if to_grey == 'all':
+      to_grey = self.opts_single.items()
+    for m, o in to_grey:
       o.greyAll()
 
   def applyIntervene(self, config):
@@ -352,8 +352,8 @@ class GroupSettings:
     self.group_name.value = config['name']
     self.N_input.value = config['N']
     for m, i in config['intervene'].items():
-      if m == self.node.name:
-        continue
+      # if m == self.node.name:
+      #   continue
       self.opts_single[m].applyIntervene(i)
 
 class PlotSettings:
@@ -390,7 +390,9 @@ class Experiment:
 
   def setting(self, disabled=[], show='all'):
     '''
+    Let user design experiment
     disabled: array of names
+    show: array of names
     '''
     settings = [GroupSettings(self.node, disabled, show=show)]
     add_group = wd.Button(description='Add Another Group')
@@ -404,15 +406,24 @@ class Experiment:
     '''
     For demonstrating a preset experiment, disable all options and display the settings
     config: array of intervenes
+    show: array of names
     '''
     settings = []
     for c in config:
       s = GroupSettings(self.node, disabled=[], show=show)
       s.applyIntervene(c)
-      s.greyAll()
+      s.grey()
       s.display()
       settings.append(s)
     self.doExperiment(settings)()
+
+  def partialFixedSetting(self, config, show='all'):
+    '''
+    Let user design experiment, subject to constraints
+    config: array of intervenes
+    show: array of names
+    '''
+    settings = [GroupSettings(self.node, disabled, show=show)]
 
   def addGroup(self, settings, disabled, show='all'):
     def f(sender):
