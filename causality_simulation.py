@@ -2,12 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ipywidgets as wd
 import pandas as pd
-import plotly.express as px
-from IPython.display import display
+from IPython.display import display, update_display
 from inspect import signature
 from graphviz import Digraph
 from scipy.stats import pearsonr
 import plotly.express as px
+import plotly.graph_objects as go
 
 class CausalNode:
   def __init__(self, vartype, func, name, causes=None, min=0, max=100, categories=[]):
@@ -515,6 +515,10 @@ class Experiment:
       heatmap = plt.hist2d(xData, yData, bins=30, cmap=plt.cm.BuPu)
       plt.colorbar(heatmap[3])
 
+  def newPlot(self):
+    p = interactivePlot(self)
+    p.display()
+
   def plotOrchard(self, name, gradient=None, hover_data='all'):
     """Takes in the name of the group in the experiment and the name of the 
     variable used to create the color gradient"""
@@ -523,6 +527,172 @@ class Experiment:
     fig = px.scatter(self.data[name], x="x", y="y", color=gradient, title='Orchard Layout:' + name, hover_data=hover_data)
     fig.update_layout({'height':650, 'width':650})
     fig.show()
+
+class interactivePlot:
+  def __init__(self, experiment):
+    self.experiment = experiment
+    self.x_options = list(experiment.node.network.keys())
+    self.y_options = self.x_options.copy() + ['None (Distributions Only)']
+    self.textbox1 = wd.Dropdown(
+        description='x-Axis Variable: ',
+        value=self.x_options[0],
+        options=self.x_options
+    )
+    self.textbox2 = wd.Dropdown(
+        description='y-Axis Variable: ',
+        value=self.y_options[0],
+        options=self.y_options
+    )
+    self.button = wd.RadioButtons(
+        options=list(experiment.data.keys()) + ['All'],
+        layout={'width': 'max-content'},
+        description='Group',
+        disabled=False
+    )
+    self.showTrace()
+
+  def display(self):
+    container = wd.HBox([self.textbox1, self.textbox2])
+    display(wd.VBox([container, self.g]))
+    display(self.button)
+    display(Nothing(), display_id='1')
+    self.button.layout.display = 'none'
+
+  def showTrace(self):
+    traces = []
+    for group in self.experiment.group_names:
+      traces += [self.construct_trace(self.x_options[0], self.y_options[0], self.choose_trace(self.x_options[0], self.y_options[0]))(x=self.experiment.data[group][self.x_options[0]], y=self.experiment.data[group][self.y_options[0]], name=group)]
+        
+    self.g = go.FigureWidget(data=traces,
+                        layout=go.Layout(
+                            title=dict(
+                                text=self.x_options[0] + " vs. " + self.y_options[0]
+                            ),
+                            barmode='overlay',
+                            height=500,
+                            width=800,
+                            xaxis=dict(title=self.x_options[0]),
+                            yaxis=dict(title=self.y_options[0])
+                        ))
+
+  def observe(self):
+    self.textbox1.observe(self.response, names="value")
+    self.textbox2.observe(self.response, names="value")
+    self.button.observe(self.update_table, names='value')
+
+  def choose_trace(self, x, y):
+      xType, yType = self.experiment.node.nodeDict()[x].vartype, self.experiment.node.nodeDict()[y].vartype
+      if xType != 'categorical' and yType != 'categorical':
+          return 'scatter'
+      elif xType == 'categorical' and yType != 'categorical':
+          return 'bar'
+      elif xType != 'categorical' and yType == 'categorical':
+          return 'barh'
+      else:
+          return 'table'
+
+  def construct_trace(self, x, y, traceType):
+      if traceType == 'scatter':
+          return lambda x={}, y={}, name=None: go.Scatter(x=x, y=y, mode='markers', opacity=0.75, name=name)
+      elif traceType == 'bar':
+          avg = self.experiment.data.groupby(x).agg('mean')
+          std = self.experiment.data.groupby(x).agg('std')[y]
+          return lambda x={}, y={}, name=None: go.Bar(x=list(avg.index), y=avg[y], name=name, error_y=dict(type='data', array=std[y]))
+      elif traceType == 'barh':
+          avg = self.experiment.data.groupby(y).agg('mean')
+          std = self.experiment.data.groupby(y).agg('std')[x]
+          return lambda x={}, y={}, name=None: go.Bar(x=avg[x], y=list(avg.index), name=name, error_y=dict(type='data', array=std[x]), orientation='h')
+      elif traceType == 'table':
+          return lambda x={}, y={}, name=None: go.Scatter(layout={'height':10, 'width':10})
+
+  def pivot_table(self):
+      if self.textbox1.value == self.textbox2.value:
+          df = "Cannot create a pivot table with only one variable"
+          return df
+      if self.button.value == 'All':
+          for group in self.experiment.group_names:
+              df = pd.DataFrame()
+              df = pd.concat([df, self.experiment.data[group]])
+          df = df.groupby([self.textbox1.value, self.textbox2.value]).agg('count').reset_index().pivot(self.textbox1.value, self.textbox2.value, self.options[0])
+      else:
+          df = self.experiment.data[self.button.value].groupby([self.textbox1.value, self.textbox2.value]).agg('count').reset_index().pivot(self.textbox1.value, self.textbox2.value, self.options[0])
+      return df
+
+  def update_table(self, change):
+      self.update_display(self.pivot_table(), display_id='1');
+      self.button.layout.display = 'flex'
+
+  def validate(self):
+      return self.textbox1.value in self.x_options and self.textbox2.value in (self.x_options + ['None (Distributions Only)'])
+
+  def response(self, change):
+      if self.validate():
+          if self.textbox2.value in self.x_options:
+              traceType = choose_trace(self.textbox1.value, self.textbox2.value)
+              with self.g.batch_update():
+                  if traceType == 'table':
+                      self.g.update_layout({'height':10, 'width':10})
+                      self.g.layout.xaxis.title = ""
+                      self.g.layout.yaxis.title = ""
+                      self.g.layout.title = ""
+                      self.button.layout.display = 'flex'
+                  else:
+                      if traceType == 'scatter':
+                          for i in range(len(self.experiment.group_names)):
+                              self.g.data[i].x = self.experiment.data[self.experiment.group_names[i]][textbox1.value]
+                              self.g.data[i].y = self.experiment.data[self.experiment.group_names[i]][textbox2.value]
+                              self.g.data[i].error_y = {'visible':False}
+                              self.g.data[i].error_x = {'visible':False}
+                              self.g.data[i].orientation = None
+                          self.g.plotly_restyle({'type':'scatter', 'opacity':0.75})
+                      elif traceType == 'bar':
+                          self.g.plotly_restyle({'type':'bar', 'opacity':1})
+                          for i in range(len(self.experiment.group_names)):
+                              avg = self.experiment.data[self.experiment.group_names[i]].groupby(self.textbox1.value).agg('mean')
+                              std = self.experiment.data[self.experiment.group_names[i]].groupby(self.textbox1.value).agg('std')[self.textbox2.value]
+                              self.g.data[i].x = list(avg.index)
+                              self.g.data[i].y = avg[self.textbox2.value]
+                              self.g.data[i].error_y = {'type':'data', 'array':std, 'visible':True}
+                              self.g.data[i].error_x = {'visible':False}
+                              self.g.data[i].orientation = None
+                      elif traceType == 'barh':
+                          self.g.plotly_restyle({'type':'bar', 'opacity':1})
+                          for i in range(len(self.experiment.group_names)):
+                              avg = self.experiment.data[self.experiment.group_names[i]].groupby(self.textbox2.value).agg('mean')
+                              std = self.experiment.data[self.experiment.group_names[i]].groupby(self.textbox2.value).agg('std')[self.textbox1.value]
+                              self.g.data[i].x = avg[self.textbox1.value]
+                              self.g.data[i].y = list(avg.index)
+                              self.g.data[i].error_x = {'type':'data', 'array':std, 'visible':True}
+                              self.g.data[i].orientation = 'h'
+                              self.g.data[i].error_y  = {'visible':False}
+                      self.g.layout.xaxis.title = self.textbox1.value
+                      self.g.layout.yaxis.title = self.textbox2.value
+                      self.g.layout.title = self.textbox1.value + " vs. " + self.textbox2.value
+                      self.g.update_layout({'height':500, 'width':800})
+                      self.update_display(Nothing(), display_id='1')
+                      self.button.layout.display = 'none'
+          else:
+              with self.g.batch_update():
+                  if self.experiment.node.nodeDict()[self.textbox1.value].vartype == "categorical":
+                      self.g.plotly_restyle({'opacity':1})
+                  else:
+                      self.g.plotly_restyle({'opacity':0.75})
+                  for i in range(len(self.experiment.group_names)):
+                      self.g.data[i].x = self.experiment.data[self.experiment.group_names[i]][self.textbox1.value]
+                      self.g.data[i].y = None
+                      self.g.data[i].error_x = {'visible':False}
+                      self.g.data[i].error_y = {'visible':False}
+                      self.g.data[i].orientation = None
+                  self.g.layout.xaxis.title = self.textbox1.value
+                  self.g.layout.yaxis.title = "Count"
+                  self.g.layout.title = self.textbox1.value
+                  self.g.plotly_restyle({'type':'histogram'})
+
+class Nothing:
+  def __init__(self):
+      None
+  def __repr__(self):
+      return ""
 
 # Uniformly distributed from 0m to 1000m
 x_node = CausalNode('continuous', uniform(0, 1000), name='x', min=0, max=1000)
