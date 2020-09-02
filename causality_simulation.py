@@ -387,6 +387,7 @@ class Experiment:
     self.node = node
     self.data = {} # {group_name: {node_name: [val, ...], ...}, ...}
     self.group_names = []
+    self.p = None
 
   def setting(self, disabled=[], show='all'):
     '''
@@ -517,6 +518,7 @@ class Experiment:
 
   def newPlot(self):
     p = interactivePlot(self)
+    self.p = p
     p.display()
 
   def plotOrchard(self, name, gradient=None, hover_data='all'):
@@ -549,6 +551,7 @@ class interactivePlot:
         description='Group',
         disabled=False
     )
+    self.observe()
     self.showTrace()
 
   def display(self):
@@ -603,7 +606,7 @@ class interactivePlot:
           std = self.experiment.data.groupby(y).agg('std')[x]
           return lambda x={}, y={}, name=None: go.Bar(x=avg[x], y=list(avg.index), name=name, error_y=dict(type='data', array=std[x]), orientation='h')
       elif traceType == 'table':
-          return lambda x={}, y={}, name=None: go.Scatter(layout={'height':10, 'width':10})
+          return lambda x={}, y={}, name=None: go.Scatter()
 
   def pivot_table(self):
       if self.textbox1.value == self.textbox2.value:
@@ -619,7 +622,7 @@ class interactivePlot:
       return df
 
   def update_table(self, change):
-      self.update_display(self.pivot_table(), display_id='1');
+      update_display(self.pivot_table(), display_id='1');
       self.button.layout.display = 'flex'
 
   def validate(self):
@@ -628,7 +631,7 @@ class interactivePlot:
   def response(self, change):
       if self.validate():
           if self.textbox2.value in self.x_options:
-              traceType = choose_trace(self.textbox1.value, self.textbox2.value)
+              traceType = self.choose_trace(self.textbox1.value, self.textbox2.value)
               with self.g.batch_update():
                   if traceType == 'table':
                       self.g.update_layout({'height':10, 'width':10})
@@ -639,8 +642,8 @@ class interactivePlot:
                   else:
                       if traceType == 'scatter':
                           for i in range(len(self.experiment.group_names)):
-                              self.g.data[i].x = self.experiment.data[self.experiment.group_names[i]][textbox1.value]
-                              self.g.data[i].y = self.experiment.data[self.experiment.group_names[i]][textbox2.value]
+                              self.g.data[i].x = self.experiment.data[self.experiment.group_names[i]][self.textbox1.value]
+                              self.g.data[i].y = self.experiment.data[self.experiment.group_names[i]][self.textbox2.value]
                               self.g.data[i].error_y = {'visible':False}
                               self.g.data[i].error_x = {'visible':False}
                               self.g.data[i].orientation = None
@@ -669,7 +672,7 @@ class interactivePlot:
                       self.g.layout.yaxis.title = self.textbox2.value
                       self.g.layout.title = self.textbox1.value + " vs. " + self.textbox2.value
                       self.g.update_layout({'height':500, 'width':800})
-                      self.update_display(Nothing(), display_id='1')
+                      update_display(Nothing(), display_id='1')
                       self.button.layout.display = 'none'
           else:
               with self.g.batch_update():
