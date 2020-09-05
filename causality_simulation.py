@@ -516,8 +516,8 @@ class Experiment:
       heatmap = plt.hist2d(xData, yData, bins=30, cmap=plt.cm.BuPu)
       plt.colorbar(heatmap[3])
 
-  def newPlot(self):
-    p = interactivePlot(self)
+  def newPlot(self, disabled=[]):
+    p = interactivePlot(self, disabled)
     self.p = p
     p.display()
 
@@ -531,10 +531,18 @@ class Experiment:
     fig.show()
 
 class interactivePlot:
-  def __init__(self, experiment):
+  def __init__(self, experiment, disabled):
     self.experiment = experiment
     self.x_options = list(experiment.node.network.keys())
-    self.y_options = self.x_options.copy() + ['None (Distributions Only)']
+    self.y_options = self.x_options.copy()
+    for i in disabled:
+    	if i in self.x_options:
+    		self.x_options.remove(i)
+    	if i in self.y_options:
+    		self.y_options.remove(i)
+    self.x_options.sort()
+    self.y_options.sort()
+    self.y_options += ['None (Distributions Only)']
     self.textbox1 = wd.Dropdown(
         description='x-Axis Variable: ',
         value=self.x_options[0],
