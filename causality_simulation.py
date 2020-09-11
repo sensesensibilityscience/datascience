@@ -400,7 +400,7 @@ class Experiment:
     submit = wd.Button(description='Perform Experiment')
     settings[0].display()
     settings[0].append(add_group, submit)
-    add_group.on_click(self.addGroup(settings, disabled))
+    add_group.on_click(self.addGroup(settings, disabled, show=show))
     submit.on_click(self.doExperiment(settings))
 
   def fixedSetting(self, config, show='all'):
