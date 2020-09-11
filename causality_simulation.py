@@ -516,8 +516,8 @@ class Experiment:
       heatmap = plt.hist2d(xData, yData, bins=30, cmap=plt.cm.BuPu)
       plt.colorbar(heatmap[3])
 
-  def newPlot(self):
-    p = interactivePlot(self)
+  def newPlot(self, disabled=[]):
+    p = interactivePlot(self, disabled)
     self.p = p
     p.display()
 
@@ -526,15 +526,23 @@ class Experiment:
     variable used to create the color gradient"""
     if hover_data == 'all':
       hover_data = self.data[name].keys()
-    fig = px.scatter(self.data[name], x="x", y="y", color=gradient, title='Orchard Layout:' + name, hover_data=hover_data)
+    fig = px.scatter(self.data[name], x="Latitude", y="Longitude", color=gradient, title='Orchard Layout:' + name, hover_data=hover_data)
     fig.update_layout({'height':650, 'width':650})
     fig.show()
 
 class interactivePlot:
-  def __init__(self, experiment):
+  def __init__(self, experiment, disabled):
     self.experiment = experiment
     self.x_options = list(experiment.node.network.keys())
-    self.y_options = self.x_options.copy() + ['None (Distributions Only)']
+    self.y_options = self.x_options.copy()
+    for i in disabled:
+    	if i in self.x_options:
+    		self.x_options.remove(i)
+    	if i in self.y_options:
+    		self.y_options.remove(i)
+    self.x_options.sort()
+    self.y_options.sort()
+    self.y_options += ['None (Distributions Only)']
     self.textbox1 = wd.Dropdown(
         description='x-Axis Variable: ',
         value=self.x_options[0],
@@ -698,10 +706,10 @@ class Nothing:
       return ""
 
 # Uniformly distributed from 0m to 1000m
-x_node = CausalNode('continuous', uniform(0, 1000), name='x', min=0, max=1000)
-y_node = CausalNode('continuous', uniform(0, 1000), name='y', min=0, max=1000)
+latitude_node = CausalNode('continuous', uniform(0, 1000), name='Latitude', min=0, max=1000)
+longitude_node = CausalNode('continuous', uniform(0, 1000), name='Longitude', min=0, max=1000)
 # Gaussian+absolute value, more wind in south
-wind_node = CausalNode('continuous', lambda x,y: dependentGaussian(0, 2, 5, 1000, 10, 10)(x) + dependentGaussian(0, 6, 3, 1000, 2, 4)(x), name='Wind Speed', causes=[x_node, y_node], min=0, max=40)
+wind_node = CausalNode('continuous', lambda x,y: dependentGaussian(0, 2, 5, 1000, 10, 10)(x) + dependentGaussian(0, 6, 3, 1000, 2, 4)(x), name='Wind Speed', causes=[latitude_node, longitude_node], min=0, max=40)
 supplement_node = CausalNode('categorical', constant('Water'), name='Supplement', categories=['Water', 'Kombucha', 'Milk', 'Tea'])
 fertilizer_node = CausalNode('continuous', gaussian(10, 2), 'Fertilizer', min=0, max=20)
 supplement_soil_effects = {'Water': (1, 0), 'Kombucha': (0.6, -5), 'Milk': (1.2, 10), 'Tea': (0.7, 0)}
@@ -709,7 +717,7 @@ supplement_soil_effects = {'Water': (1, 0), 'Kombucha': (0.6, -5), 'Milk': (1.2,
 soil_node = CausalNode('continuous', lambda x, y: categoricalLin(supplement_soil_effects)(linear(0, 10, 20, 100, fuzz=5)(x), y), 'Soil Quality', causes=[fertilizer_node, supplement_node], min=0, max=100)
 supplement_bees_effects = {'Water': (1, 0), 'Kombucha': (1.5, 0), 'Milk': (1, 0), 'Tea': (1.3, 0)}
 # Beehive in north, bees avoid wind, love kombucha
-bees_node = CausalNode('discrete', lambda x, y, z: categoricalLin(supplement_bees_effects)(dependentPoisson((0, 0, 250), (500, 30, 10), (0, 30, 40))(x, y), z), name='Number of Bees', causes=[x_node, wind_node, supplement_node], min=0, max=300)
+bees_node = CausalNode('discrete', lambda x, y, z: categoricalLin(supplement_bees_effects)(dependentPoisson((0, 0, 250), (500, 30, 10), (0, 30, 40))(x, y), z), name='Number of Bees', causes=[latitude_node, wind_node, supplement_node], min=0, max=300)
 # Bees and good soil improve fruiting
 fruit_node = CausalNode('discrete', dependentPoisson((0, 0, 0), (100, 200, 40), (100, 50, 16)), name='Number of Fruits', causes=[soil_node, bees_node])
 # fruit_node.drawNetwork()
