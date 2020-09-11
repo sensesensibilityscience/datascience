@@ -526,7 +526,7 @@ class Experiment:
     variable used to create the color gradient"""
     if hover_data == 'all':
       hover_data = self.data[name].keys()
-    fig = px.scatter(self.data[name], x="x", y="y", color=gradient, title='Orchard Layout:' + name, hover_data=hover_data)
+    fig = px.scatter(self.data[name], x="Latitude", y="Longitude", color=gradient, title='Orchard Layout:' + name, hover_data=hover_data)
     fig.update_layout({'height':650, 'width':650})
     fig.show()
 
