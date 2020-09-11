@@ -10,7 +10,9 @@ class Test:
         'mean_pos': ,
         'std_neg': ,
         'std_pos': ,
-        'p_pos': 
+        'p_pos': ,
+        'label_neg': ,
+        'label_pos':
         }
         '''
         self.mean_neg = config['mean_neg']
@@ -19,15 +21,29 @@ class Test:
         self.std_pos = config['std_pos']
         self.p_pos = config['p_pos']
         self.title = config['title']
+        self.label_neg = config['label_neg']
+        self.label_pos = config['label_pos']
+        self.floor = config['floor'] if 'floor' in config.keys() else None
+        self.ceil = config['ceil'] if 'ceil' in config.keys() else None
         
     def singleTest(self):
         '''
         Generates a single row [test_result_from_normal_distribution, known_1_or_0]
         '''
         if np.random.rand() < self.p_pos:
-            return [np.random.normal(self.mean_pos, self.std_pos), 1]
+            mean = self.mean_pos
+            std = self.std_pos
+            posneg = 1
         else:
-            return [np.random.normal(self.mean_neg, self.std_neg), 0]
+            mean = self.mean_neg
+            std = self.std_neg
+            posneg = 0
+        sample = np.random.normal(mean, std)
+        if self.floor != None:
+            sample = max(self.floor, sample)
+        if self.ceil != None:
+            sample = min(self.ceil, sample)
+        return [sample, posneg]
         
     def generate(self, n):
         '''
@@ -47,13 +63,18 @@ class Test:
         return true_pos, true_neg, false_pos, false_neg
     
     def plotDiagnoses(self, threshold):
+        tmin = min(self.results[:,0])
+        tmax = max(self.results[:,0])
+        stepsize = (tmax-tmin)/100
+        tmin -= 5*stepsize
+        tmax += 5*stepsize
+        bins = np.arange(tmin, tmax, stepsize)
         fig, ax = plt.subplots(figsize=(6,4))
-        bins = np.arange(0, 360, 5)
-        counts_neg, bins, patches = ax.hist(self.results[self.results[:,1]==0,0], bins=bins, fc=(31/255,119/255,180/255,.7), label='Tested Negative')
-        counts_pos, bins, patches = ax.hist(self.results[self.results[:,1]==1,0], bins=bins, fc=(255/255,127/255,14/255,0.7), label='Tested Positive')
+        counts_neg, bins, patches = ax.hist(self.results[self.results[:,1]==0,0], bins=bins, fc=(31/255,119/255,180/255,.7), label=self.label_neg)
+        counts_pos, bins, patches = ax.hist(self.results[self.results[:,1]==1,0], bins=bins, fc=(255/255,127/255,14/255,0.7), label=self.label_pos)
         counts = np.concatenate((counts_neg, counts_pos))
-        ax.plot([threshold, threshold], [0, max(counts+10)], c='black')
-        ax.set_xlim(min(self.results[:,0])-20, max(self.results[:,0])+20)
+        ax.plot([threshold, threshold], [0, max(counts*1.05)], c='black')
+        ax.set_xlim(tmin, tmax)
         ax.set_ylim(0, max(counts+10))
         ax.set_xlabel('Test Value')
         ax.set_ylabel('Count')
@@ -72,9 +93,14 @@ class Test:
         print('Overall accuracy: {:.2f}%'.format((true_pos+true_neg)/(true_pos+true_neg+false_pos+false_neg)*100))
         
     def plot(self):
-        threshold = (min(self.results[:,0]) + max(self.results[:,0]))/2
+        tmin = min(self.results[:,0])
+        tmax = max(self.results[:,0])
+        stepsize = (tmax-tmin)/100
+        threshold = (tmin+tmax)/2
+        tmin -= 5*stepsize
+        tmax += 5*stepsize
         fig, ax = self.plotDiagnoses(threshold)
-        @widgets.interact(t=(0, 350, 5))
+        @widgets.interact(t=(tmin, tmax, stepsize))
         def update(t):
             ax.lines[0].set_xdata([t, t])
             self.printDiagnoses(t)
