@@ -516,30 +516,32 @@ class Experiment:
       heatmap = plt.hist2d(xData, yData, bins=30, cmap=plt.cm.BuPu)
       plt.colorbar(heatmap[3])
 
-  def newPlot(self, disabled=[]):
-    p = interactivePlot(self, disabled)
+  def newPlot(self, show='all'):
+    p = interactivePlot(self, show)
     self.p = p
     p.display()
 
-  def plotOrchard(self, name, gradient=None, hover_data='all'):
+  def plotOrchard(self, name, gradient=None, show='all'):
     """Takes in the name of the group in the experiment and the name of the 
     variable used to create the color gradient"""
-    if hover_data == 'all':
-      hover_data = self.data[name].keys()
-    fig = px.scatter(self.data[name], x="Latitude", y="Longitude", color=gradient, title='Orchard Layout:' + name, hover_data=hover_data)
+    if show == 'all':
+      show = self.data[name].keys()
+    fig = px.scatter(self.data[name], x="Latitude", y="Longitude", color=gradient, title='Orchard Layout: ' + name, hover_data=show)
     fig.update_layout({'height':650, 'width':650})
+    fig.update_xaxes({'fixedrange':True})
+    #fig.update_yaxes({'fixedrange':True})
     fig.show()
 
 class interactivePlot:
-  def __init__(self, experiment, disabled):
+  def __init__(self, experiment, show='all'):
     self.experiment = experiment
     self.x_options = list(experiment.node.network.keys())
     self.y_options = self.x_options.copy()
-    for i in disabled:
-    	if i in self.x_options:
-    		self.x_options.remove(i)
-    	if i in self.y_options:
-    		self.y_options.remove(i)
+    if show != 'all':
+        for i in self.x_options.copy():
+            if i not in show:
+                self.x_options.remove(i)
+                self.y_options.remove(i)
     self.x_options.sort()
     self.y_options.sort()
     self.y_options += ['None (Distributions Only)']
@@ -583,7 +585,7 @@ class interactivePlot:
                             height=500,
                             width=800,
                             xaxis=dict(title=self.x_options[0]),
-                            yaxis=dict(title=self.y_options[0])
+                            yaxis=dict(scaleanchor="x", scaleratio=1, title=self.y_options[0])
                         ))
 
   def observe(self):
