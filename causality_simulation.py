@@ -149,6 +149,7 @@ def poisson(rate):
 
 def choice(opts, weights=None, replace=True):
   def f():
+    nonlocal weights
     if weights == None:
       chosen = np.random.choice(opts, replace=replace)
     else:
@@ -459,6 +460,7 @@ class Experiment:
         intervene = self.generateIntervene(s.opts_single)
         self.data[name] = self.node.generate(n, intervene=intervene)
       self.group_names = names
+      display(wd.Label(value='Data from experiment collected!'))
     return f
 
   def plotSetting(self, show='all'):
@@ -708,8 +710,8 @@ class Nothing:
       return ""
 
 # Uniformly distributed from 0m to 1000m
-latitude_node = CausalNode('continuous', uniform(0, 1000), name='Latitude', min=0, max=1000)
-longitude_node = CausalNode('continuous', uniform(0, 1000), name='Longitude', min=0, max=1000)
+latitude_node = CausalNode('continuous', choice(np.linspace(0, 1000, 50), replace=False), name='Latitude', min=0, max=1000)
+longitude_node = CausalNode('continuous', choice(np.linspace(0, 1000, 50), replace=False), name='Longitude', min=0, max=1000)
 # Gaussian+absolute value, more wind in south
 wind_node = CausalNode('continuous', lambda x,y: dependentGaussian(0, 2, 5, 1000, 10, 10)(x) + dependentGaussian(0, 6, 3, 1000, 2, 4)(x), name='Wind Speed', causes=[latitude_node, longitude_node], min=0, max=40)
 supplement_node = CausalNode('categorical', constant('Water'), name='Supplement', categories=['Water', 'Kombucha', 'Milk', 'Tea'])
