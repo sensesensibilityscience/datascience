@@ -384,8 +384,8 @@ class PlotSettings:
     self.box.children = to_display
 
 class Experiment:
-  def __init__(self, node):
-    self.node = node
+  def __init__(self, network):
+    self.node = network.root_node
     self.data = {} # {group_name: {node_name: [val, ...], ...}, ...}
     self.group_names = []
     self.p = None
@@ -709,6 +709,16 @@ class Nothing:
   def __repr__(self):
       return ""
 
+class CausalNetwork:
+    def __init__(self, root_node):
+        self.root_node = root_node
+
+    def drawNetwork(self):
+        self.root_node.drawNetwork()
+
+'''
+truffula
+'''
 # Uniformly distributed from 0m to 1000m
 latitude_node = CausalNode('continuous', choice(np.linspace(0, 1000, 50), replace=False), name='Latitude', min=0, max=1000)
 longitude_node = CausalNode('continuous', choice(np.linspace(0, 1000, 50), replace=False), name='Longitude', min=0, max=1000)
@@ -725,3 +735,9 @@ bees_node = CausalNode('discrete', lambda x, y, z: categoricalLin(supplement_bee
 # Bees and good soil improve fruiting
 fruit_node = CausalNode('discrete', dependentPoisson((0, 0, 0), (100, 200, 40), (100, 50, 16)), name='Number of Fruits', causes=[soil_node, bees_node])
 # fruit_node.drawNetwork()
+
+truffula = CausalNetwork(fruit_node)
+
+'''
+thermostat
+'''
