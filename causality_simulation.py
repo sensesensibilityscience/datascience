@@ -126,90 +126,6 @@ class CausalNode:
     draw_edges(self, g)
     return g
 
-# Some functions for causal relations
-def gaussian(mean, std):
-  def f():
-    return np.random.normal(mean, std)
-  return f
-
-def constant(x):
-  def f():
-    return x
-  return f
-
-def uniform(a, b):
-  def f():
-    return np.random.random()*(b-a) + a
-  return f
-
-def poisson(rate):
-  def f():
-    return np.random.poisson(lam=rate)
-  return f
-
-def choice(opts, weights=None, replace=True):
-  def f():
-    nonlocal weights
-    if weights == None:
-      chosen = np.random.choice(opts, replace=replace)
-    else:
-      weights = np.array(weights)
-      p = weights/sum(weights)
-      chosen = np.random.choice(opts, p=p, replace=replace)
-    return chosen
-  return f
-
-# Solves for the coefficients given a set of points
-def solveLinear(*points):
-  n = len(points)
-  A = np.zeros((n, n))
-  b = np.zeros(n)
-  for i in range(n):
-    A[i] = np.append(points[i][0:-1], 1)
-    b[i] = points[i][-1]
-  sol = np.linalg.solve(A, b)
-  return sol[0:-1], sol[-1]
-
-def linear(x1, y1, x2, y2, fuzz=0):
-  M, c = solveLinear((x1, y1), (x2, y2))
-  def f(x):
-    return M[0]*x + c + np.random.normal(0, fuzz)
-  return f
-
-def linearFunc(x1, m1, c1, x2, m2, c2, func, fuzz=0, integer=False):
-  M_m, c_m = solveLinear((x1, m1), (x2, m2))
-  M_c, c_c = solveLinear((x1, c1), (x2, c2))
-  def f(*args):
-    x = args[-1]
-    m = M_m[0]*x + c_m
-    c = M_c[0]*x + c_c
-    number = m*func(*args[0:-1]) + c + np.random.normal(0, fuzz)
-    if integer:
-      number = max(int(number), 0)
-    return number
-  return f
-
-def dependentPoisson(*points):
-  M, c = solveLinear(*points)
-  def f(*args):
-    rate = max(M@np.array(args) + c, 0)
-    return np.random.poisson(lam=rate)
-  return f
-
-def dependentGaussian(x1, mean1, std1, x2, mean2, std2):
-  M_mean, c_mean = solveLinear((x1, mean1), (x2, mean2))
-  M_std, c_std = solveLinear((x1, std1), (x2, std2))
-  def f(x):
-    mean = M_mean[0]*x + c_mean
-    std = max(M_std[0]*x + c_std, 0)
-    return abs(np.random.normal(mean, std))
-  return f
-
-def categoricalLin(data): # data: {'category': (m, c), etc}
-  def f(x, y): # y is the category, x is the input value
-    return data[y][0] * x + data[y][1]
-  return f
-
 class InterveneOptions:
   '''
   Line of radio button options for intervening in a single variable
@@ -716,6 +632,97 @@ class CausalNetwork:
     def drawNetwork(self):
         self.root_node.drawNetwork()
 
+# Some functions for causal relations
+def gaussian(mean, std):
+  def f():
+    return np.random.normal(mean, std)
+  return f
+
+def constant(x):
+  def f():
+    return x
+  return f
+
+def uniform(a, b):
+  def f():
+    return np.random.random()*(b-a) + a
+  return f
+
+def poisson(rate):
+  def f():
+    return np.random.poisson(lam=rate)
+  return f
+
+def choice(opts, weights=None, replace=True):
+  def f():
+    nonlocal weights
+    if weights is None:
+      chosen = np.random.choice(opts, replace=replace)
+    else:
+      weights = np.array(weights)
+      p = weights/sum(weights)
+      chosen = np.random.choice(opts, p=p, replace=replace)
+    return chosen
+  return f
+
+# Solves for the coefficients given a set of points
+def solveLinear(*points):
+  n = len(points)
+  A = np.zeros((n, n))
+  b = np.zeros(n)
+  for i in range(n):
+    A[i] = np.append(points[i][0:-1], 1)
+    b[i] = points[i][-1]
+  sol = np.linalg.solve(A, b)
+  return sol[0:-1], sol[-1]
+
+def linear(x1, y1, x2, y2, fuzz=0):
+  M, c = solveLinear((x1, y1), (x2, y2))
+  def f(x):
+    return M[0]*x + c + np.random.normal(0, fuzz)
+  return f
+
+def linearFunc(x1, m1, c1, x2, m2, c2, func, fuzz=0, integer=False):
+  # Applies linear function on the input of func(*args[0:-1]), where the slope and intercept are determined by args[-1] according to x1, m1, c1, x2, m2, c2
+  M_m, c_m = solveLinear((x1, m1), (x2, m2))
+  M_c, c_c = solveLinear((x1, c1), (x2, c2))
+  def f(*args):
+    x = args[-1]
+    m = M_m[0]*x + c_m
+    c = M_c[0]*x + c_c
+    number = m*func(*args[0:-1]) + c + np.random.normal(0, fuzz)
+    if integer:
+      number = max(int(number), 0)
+    return number
+  return f
+
+def dependentPoisson(*points):
+  M, c = solveLinear(*points)
+  def f(*args):
+    rate = max(M@np.array(args) + c, 0)
+    return np.random.poisson(lam=rate)
+  return f
+
+def dependentGaussian(x1, mean1, std1, x2, mean2, std2):
+  M_mean, c_mean = solveLinear((x1, mean1), (x2, mean2))
+  M_std, c_std = solveLinear((x1, std1), (x2, std2))
+  def f(x): # x is input value used to calculate mean and std of new distribution
+    mean = M_mean[0]*x + c_mean
+    std = max(M_std[0]*x + c_std, 0)
+    return abs(np.random.normal(mean, std))
+  return f
+
+def categoricalLin(data): # data: {'category': (m, c, fuzz), etc}
+  def f(x, y): # y is the category, x is the input value
+    fuzz = data[y][2] if len(data[y]) == 3 else 0
+    return data[y][0] * x + data[y][1] + np.random.normal(0, fuzz)
+  return f
+
+def categoricalGaussian(data): # data: {'category': (mean, std), etc}
+    def f(x): # x is the category
+        return np.random.normal(data[x][0], data[y][1])
+    return f
+
 '''
 truffula
 '''
@@ -739,5 +746,13 @@ fruit_node = CausalNode('discrete', dependentPoisson((0, 0, 0), (100, 200, 40), 
 truffula = CausalNetwork(fruit_node)
 
 '''
-thermostat
+basketball
 '''
+shottype_node = CausalNode('categorical', choice(['Above head', 'Layup', 'Hook shot'], weights=[6, 3, 2]), name='Shot Type', categories=['Above head', 'Layup', 'Hook shot'])
+hours_node = CausalNode('continuous', choice(np.linspace(0, 14, 30), weights=1/np.linspace(1, 15, 30)), name='Hours Practised per Week')
+height_node = CausalNode('continuous', gaussian(170, 10), name='Height (cm)', min=150, max=190)
+ability_node = CausalNode('continuous', linearFunc(0, 1, 0, 10, 1, 20, linear(150, 40, 190, 60, fuzz=10)), name='Ability', causes=[height_node, hours_node])
+shottype_modifier = {'Above head': (1, 0), 'Layup': (0.6, 0), 'Hook shot': (0.3, 0)}
+success_node = CausalNode('continuous', categoricalLin(shottype_modifier), name='Success Rate', causes=[ability_node, shottype_node])
+
+basketball = CausalNetwork(success_node)
