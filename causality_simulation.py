@@ -632,8 +632,7 @@ class CausalNetwork:
         self.root_node = root_node
 
     def drawNetwork(self):
-        print('printed')
-        self.root_node.drawNetwork()
+        return self.root_node.drawNetwork()
 
 # Some functions for causal relations
 def gaussian(mean, std):
