@@ -142,20 +142,22 @@ class InterveneOptions:
     self.fixed.index = None
     self.is_categorical = node.vartype == 'categorical'
     if self.is_categorical:
-      fixed_arg = wd.Dropdown(options=node.categories, disabled=True, layout=wd.Layout(width='70px'))
+      fixed_arg = wd.Dropdown(options=node.categories, disabled=True, layout=wd.Layout(width='100px'))
     else:
       fixed_arg = wd.BoundedFloatText(disabled=True, layout=wd.Layout(width='70px'))
     self.fixed_arg = fixed_arg
     self.range_visibility = 'hidden' if self.is_categorical else 'visible'
     self.range = wd.RadioButtons(options=['Range'], disabled=self.disabled[2], layout=wd.Layout(width='70px', visibility=self.range_visibility))
     self.range.index = None
+    self.range_arg1_text = wd.Label(value='from')
     self.range_arg1 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
+    self.range_arg2_text = wd.Label(value='to')
     self.range_arg2 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
     self.range_rand = wd.Checkbox(description='Randomise Order', disabled=True, indent=False, layout=wd.Layout(visibility=self.range_visibility))
     self.none.observe(self.none_observer, names=['value'])
     self.fixed.observe(self.fixed_observer, names=['value'])
     self.range.observe(self.range_observer, names=['value'])
-    self.box = wd.HBox([self.text, self.none, self.fixed, self.fixed_arg, self.range, self.range_arg1, self.range_arg2, self.range_rand])
+    self.box = wd.HBox([self.text, self.none, self.fixed, self.fixed_arg, self.range, self.range_arg1_text, self.range_arg1, self.range_arg2_text, self.range_arg2, self.range_rand])
 
   def display(self):
     display(self.box)
@@ -630,6 +632,7 @@ class CausalNetwork:
         self.root_node = root_node
 
     def drawNetwork(self):
+        print('printed')
         self.root_node.drawNetwork()
 
 # Some functions for causal relations
