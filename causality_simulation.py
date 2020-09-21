@@ -149,9 +149,9 @@ class InterveneOptions:
         self.range_visibility = 'hidden' if self.is_categorical else 'visible'
         self.range = wd.RadioButtons(options=['Range'], disabled=self.disabled[2], layout=wd.Layout(width='70px', visibility=self.range_visibility))
         self.range.index = None
-        self.range_arg1_text = wd.Label(value='from')
+        self.range_arg1_text = wd.Label(value='from', layout=wd.Layout(visibility=self.range_visibility))
         self.range_arg1 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
-        self.range_arg2_text = wd.Label(value='to')
+        self.range_arg2_text = wd.Label(value='to', layout=wd.Layout(visibility=self.range_visibility))
         self.range_arg2 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
         self.range_rand = wd.Checkbox(description='Randomise Order', disabled=True, indent=False, layout=wd.Layout(visibility=self.range_visibility))
         self.none.observe(self.none_observer, names=['value'])
@@ -188,8 +188,7 @@ class InterveneOptions:
     # Radio button .index = None if off, .index = 0 if on
     def none_observer(self, sender):
         if self.none.index == 0:
-            if self.is_categorical:
-                self.fixed.index = None
+            self.fixed.index = None
             self.fixed_arg.disabled = True
             self.range.index = None
             self.range_arg1.disabled = True
@@ -208,8 +207,7 @@ class InterveneOptions:
     def range_observer(self, sender):
         if self.range.index == 0:
             self.none.index = None
-            if self.is_categorical:
-                self.fixed.index = None
+            self.fixed.index = None
             self.fixed_arg.disabled = True
             self.range_arg1.disabled = False
             self.range_arg2.disabled = False
@@ -355,6 +353,9 @@ class Experiment:
         return f
 
     def generateIntervene(self, opts):
+        '''
+        generates intervene from UI settings
+        '''
         intervene = {} # Gets passed to self.generate
         for name, opt in opts.items():
             if opt.none.index == 0: # None is deselected, 0 is selected
@@ -368,8 +369,9 @@ class Experiment:
                     intervene[name] = ['range', opt.range_arg1.value, opt.range_arg2.value]
         return intervene
 
-    def doExperiment(self, settings):
+    def doExperiment(self, settings, print=True):
         def f(sender=None):
+            self.data = dict()
             names = []
             for s in settings:
                 name = s.group_name.value
@@ -378,7 +380,8 @@ class Experiment:
                 intervene = self.generateIntervene(s.opts_single)
                 self.data[name] = self.node.generate(n, intervene=intervene)
             self.group_names = names
-            display(wd.Label(value='Data from experiment collected!'))
+            if print:
+                display(wd.Label(value='Data from experiment collected!'))
         return f
 
     def plotSetting(self, show='all'):
@@ -495,7 +498,7 @@ class interactivePlot:
         traces = []
         for group in self.experiment.group_names:
             traces += [self.construct_trace(self.x_options[0], self.y_options[0], self.choose_trace(self.x_options[0], self.y_options[0]))(x=self.experiment.data[group][self.x_options[0]], y=self.experiment.data[group][self.y_options[0]], name=group)]
-        go_layout = go.Layout(title=dict(text=self.x_options[0] + " vs. " + self.y_options[0]), barmode='overlay', height=500, width=800, xaxis=dict(title=self.x_options[0]), yaxis=dict(scaleanchor="x", scaleratio=1, title=self.y_options[0]))
+        go_layout = go.Layout(title=dict(text=self.x_options[0] + " vs. " + self.y_options[0]), barmode='overlay', height=500, width=800, xaxis=dict(title=self.x_options[0]), yaxis=dict(title=self.y_options[0]))
         self.g = go.FigureWidget(data=traces, layout=go_layout)
 
     def observe(self):
@@ -623,6 +626,30 @@ class CausalNetwork:
 
     def drawNetwork(self):
         return self.root_node.drawNetwork()
+
+    def generate(self, config, runs):
+        '''
+        Performs experiment many times (runs) according to config, returns data
+        config is for a single group
+        '''
+        self.data = [self.root_node.generate(config['N'], intervene=config['intervene']) for i in range(runs)]
+
+    def stats(self, varx, vary):
+        '''
+        Calculates distribution of Pearson r and p-value between varx and vary (names of variables)
+        '''
+        runs = len(self.data)
+        results = np.zeros((runs, 2))
+        for i in range(runs):
+            x = self.data[i][varx]
+            y = self.data[i][vary]
+            results[i] = pearsonr(x, y)
+        fig, ax = plt.subplots(1, 2, figsize=(14, 5))
+        fig.suptitle(vary + ' vs. ' + varx + ', ' + str(runs) + ' runs')
+        ax[0].hist(results[:,0])
+        ax[0].set_title('Pearson r')
+        ax[1].hist(np.log(results[:,1]))
+        ax[1].set_title('log(p)')
 
 # Some functions for causal relations
 def gaussian(mean, std):
