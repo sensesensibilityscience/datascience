@@ -5,7 +5,7 @@ import pandas as pd
 from IPython.display import display, update_display
 from inspect import signature
 from graphviz import Digraph
-from scipy.stats import pearsonr
+import scipy.stats as sp
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -630,24 +630,42 @@ class CausalNetwork:
     def generate(self, config, runs):
         '''
         Performs experiment many times (runs) according to config, returns data
-        config is for a single group
         '''
-        self.data = [self.root_node.generate(config['N'], intervene=config['intervene']) for i in range(runs)]
+        self.data = dict()
+        for c in config:
+            self.data[c['name']] = [self.root_node.generate(c['N'], intervene=c['intervene']) for i in range(runs)]
 
-    def stats(self, varx, vary):
+    def statsContinuous(self, group, varx, vary):
         '''
         Calculates distribution of Pearson r and p-value between varx and vary (names of variables)
         '''
-        runs = len(self.data)
+        runs = len(self.data[group])
         results = np.zeros((runs, 2))
         for i in range(runs):
-            x = self.data[i][varx]
-            y = self.data[i][vary]
-            results[i] = pearsonr(x, y)
+            x = self.data[group][i][varx]
+            y = self.data[group][i][vary]
+            results[i] = sp.pearsonr(x, y)
         fig, ax = plt.subplots(1, 2, figsize=(14, 5))
         fig.suptitle(vary + ' vs. ' + varx + ', ' + str(runs) + ' runs')
         ax[0].hist(results[:,0])
         ax[0].set_title('Pearson r')
+        ax[1].hist(np.log(results[:,1]))
+        ax[1].set_title('log(p)')
+
+    def statsAB(self, group0, group1, var):
+        '''
+        Calculates distribution of Welch's t and p-value of var between the null hypothesis (group0) and intervention (group1)
+        '''
+        runs = len(self.data[group0])
+        results = np.zeros((runs, 2))
+        for i in range(runs):
+            a = self.data[group0][i][var]
+            b = self.data[group1][i][var]
+            results[i] = sp.ttest_ind(a, b, equal_var=True)
+        fig, ax = plt.subplots(1, 2, figsize=(14, 5))
+        fig.suptitle(var + ' between groups ' + group0 + ' and ' + group1 + ', ' + str(runs) + ' runs')
+        ax[0].hist(results[:,0])
+        ax[0].set_title("Welch's t")
         ax[1].hist(np.log(results[:,1]))
         ax[1].set_title('log(p)')
 
@@ -759,7 +777,7 @@ supplement_bees_effects = {'Water': (1, 0), 'Kombucha': (1.5, 0), 'Milk': (1, 0)
 # Beehive in north, bees avoid wind, love kombucha
 bees_node = CausalNode('discrete', lambda x, y, z: categoricalLin(supplement_bees_effects)(dependentPoisson((0, 0, 250), (500, 30, 10), (0, 30, 40))(x, y), z), name='Number of Bees', causes=[latitude_node, wind_node, supplement_node], min=0, max=300)
 # Bees and good soil improve fruiting
-fruit_node = CausalNode('discrete', dependentPoisson((0, 0, 0), (100, 200, 40), (100, 50, 16)), name='Number of Fruits', causes=[soil_node, bees_node])
+fruit_node = CausalNode('discrete', dependentPoisson((0, 0, 0), (100, 200, 28), (100, 50, 16)), name='Number of Fruits', causes=[soil_node, bees_node])
 # fruit_node.drawNetwork()
 
 truffula = CausalNetwork(fruit_node)
