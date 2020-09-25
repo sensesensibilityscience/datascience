@@ -447,13 +447,51 @@ class Experiment:
     def plotOrchard(self, name, gradient=None, show='all'):
         """Takes in the name of the group in the experiment and the name of the 
         variable used to create the color gradient"""
-        if show == 'all':
-            show = self.data[name].keys()
-        fig = px.scatter(self.data[name], x="Latitude", y="Longitude", color=gradient, title='Orchard Layout: ' + name, hover_data=show)
-        fig.update_layout({'height':650, 'width':650})
-        fig.update_xaxes({'fixedrange':True})
-        #fig.update_yaxes({'fixedrange':True})
-        fig.show()
+        o = orchardPlot(self, name, gradient=gradient, show=show)
+        self.o = o
+        o.display()
+
+class orchardPlot:
+    def __init__(self, experiment, name, gradient=None, show='all'):
+        self.data = experiment.data[name]
+        self.experiment = experiment
+        self.name = name
+        self.options = self.data.columns.tolist()
+        if show != 'all':
+            for i in self.options.copy():
+                if i not in show:
+                    self.options.remove(i)
+        self.options.sort()
+        if not gradient:
+            gradient = self.options[0]
+        self.textbox = wd.Dropdown(
+                description='Gradient: ',
+                value=gradient,
+                options=self.options
+        )
+        self.textbox.observe(self.response, names="value")
+        self.plotOrchard(gradient)
+        
+    def validate(self):
+        return self.textbox.value in self.options
+
+    def response(self, change):
+        if self.validate():
+            with self.g.batch_update():
+                self.g.data[0].marker.color = self.data[self.textbox.value]
+                self.g.data[0].marker.colorbar.title = self.textbox.value
+                self.g.data[0].hovertemplate = 'Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>'                   
+
+    def plotOrchard(self, gradient):
+        """Takes in the name of the group in the experiment and the name of the 
+        variable used to create the color gradient"""
+        orchard = go.Scatter(x=self.data['Latitude'], y=self.data['Longitude'], marker=dict(color=self.data[gradient], colorbar=dict(title=gradient)), mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0))
+        go_layout = go.Layout(title=dict(text='Orchard Layout: ' + self.name), barmode='overlay', height=650, width=650, xaxis=dict(title='Latitude', fixedrange=True), yaxis=dict(title='Longitude', fixedrange=True), hovermode='closest')
+        self.g = go.FigureWidget(data=[orchard], layout=go_layout)
+        
+    def display(self):
+        container = wd.HBox([self.textbox])
+        display(wd.VBox([container, self.g]))
 
 class interactivePlot:
     def __init__(self, experiment, show='all'):
@@ -461,28 +499,28 @@ class interactivePlot:
         self.x_options = list(experiment.node.network.keys())
         self.y_options = self.x_options.copy()
         if show != 'all':
-                for i in self.x_options.copy():
-                        if i not in show:
-                                self.x_options.remove(i)
-                                self.y_options.remove(i)
+            for i in self.x_options.copy():
+                if i not in show:
+                    self.x_options.remove(i)
+                    self.y_options.remove(i)
         self.x_options.sort()
         self.y_options.sort()
         self.y_options += ['None (Distributions Only)']
         self.textbox1 = wd.Dropdown(
-                description='x-Axis Variable: ',
-                value=self.x_options[0],
-                options=self.x_options
+            description='x-Axis Variable: ',
+            value=self.x_options[0],
+            options=self.x_options
         )
         self.textbox2 = wd.Dropdown(
-                description='y-Axis Variable: ',
-                value=self.y_options[0],
-                options=self.y_options
+            description='y-Axis Variable: ',
+            value=self.y_options[0],
+            options=self.y_options
         )
         self.button = wd.RadioButtons(
-                options=list(experiment.data.keys()) + ['All'],
-                layout={'width': 'max-content'},
-                description='Group',
-                disabled=False
+            options=list(experiment.data.keys()) + ['All'],
+            layout={'width': 'max-content'},
+            description='Group',
+            disabled=False
         )
         self.observe()
         self.showTrace()
