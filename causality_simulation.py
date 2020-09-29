@@ -8,6 +8,7 @@ from graphviz import Digraph
 import scipy.stats as sp
 import plotly.express as px
 import plotly.graph_objects as go
+import warnings
 
 class CausalNode:
     def __init__(self, vartype, func, name, causes=None, min=0, max=100, categories=[]):
@@ -531,12 +532,31 @@ class interactivePlot:
         display(self.button)
         display(Nothing(), display_id='1')
         self.button.layout.display = 'none'
+    
+    def display_values(self, group):
+        text = ""
+        xType, yType = self.experiment.node.nodeDict()[self.textbox1.value].vartype, self.experiment.node.nodeDict()[self.textbox2.value].vartype
+        if xType != 'categorical' and yType != 'categorical':
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                r = sp.pearsonr(self.experiment.data[group][self.textbox1.value], self.experiment.data[group][self.textbox2.value])
+            text += group + ': ' + 'Correlation (r) is ' + '{0:#.3f}, '.format(r[0]) + 'P-value is ' + '{0:#.3g}'.format(r[1])
+        return text
 
     def showTrace(self):
         traces = []
+        annotations = []
+        annotation_y = -0.20 - 0.02*len(self.experiment.group_names)
         for group in self.experiment.group_names:
             traces += [self.construct_trace(self.x_options[0], self.y_options[0], self.choose_trace(self.x_options[0], self.y_options[0]))(x=self.experiment.data[group][self.x_options[0]], y=self.experiment.data[group][self.y_options[0]], name=group)]
-        go_layout = go.Layout(title=dict(text=self.x_options[0] + " vs. " + self.y_options[0]), barmode='overlay', height=500, width=800, xaxis=dict(title=self.x_options[0]), yaxis=dict(title=self.y_options[0]))
+            annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
+            annotation_y += -0.05
+        go_layout = go.Layout(title=dict(text=self.x_options[0] + " vs. " + self.y_options[0]),
+                              barmode='overlay',
+                              height=500+50,
+                              width=800,
+                              xaxis=dict(title=self.x_options[0]), yaxis=dict(title=self.y_options[0]),
+                              annotations = annotations, margin=dict(b=80+50))
         self.g = go.FigureWidget(data=traces, layout=go_layout)
 
     def observe(self):
@@ -632,9 +652,11 @@ class interactivePlot:
                         self.g.layout.xaxis.title = self.textbox1.value
                         self.g.layout.yaxis.title = self.textbox2.value
                         self.g.layout.title = self.textbox1.value + " vs. " + self.textbox2.value
-                        self.g.update_layout({'height':500, 'width':800})
+                        self.g.update_layout({'height':550, 'width':800})
                         update_display(Nothing(), display_id='1')
                         self.button.layout.display = 'none'
+                        for i in range(len(self.experiment.group_names)):
+                            self.g.layout.annotations[i].text = self.display_values(self.experiment.group_names[i])
             else:
                 with self.g.batch_update():
                     if self.experiment.node.nodeDict()[self.textbox1.value].vartype == "categorical":
@@ -651,6 +673,8 @@ class interactivePlot:
                     self.g.layout.yaxis.title = "Count"
                     self.g.layout.title = self.textbox1.value
                     self.g.plotly_restyle({'type':'histogram'})
+                    for i in range(len(self.experiment.group_names)):
+                            self.g.layout.annotations[i].text = ""
 
 class Nothing:
     def __init__(self):
