@@ -8,6 +8,7 @@ from graphviz import Digraph
 import scipy.stats as sp
 import plotly.express as px
 import plotly.graph_objects as go
+import warnings
 
 class CausalNode:
     def __init__(self, vartype, func, name, causes=None, min=0, max=100, categories=[]):
@@ -447,13 +448,51 @@ class Experiment:
     def plotOrchard(self, name, gradient=None, show='all'):
         """Takes in the name of the group in the experiment and the name of the 
         variable used to create the color gradient"""
-        if show == 'all':
-            show = self.data[name].keys()
-        fig = px.scatter(self.data[name], x="Latitude", y="Longitude", color=gradient, title='Orchard Layout: ' + name, hover_data=show)
-        fig.update_layout({'height':650, 'width':650})
-        fig.update_xaxes({'fixedrange':True})
-        #fig.update_yaxes({'fixedrange':True})
-        fig.show()
+        o = orchardPlot(self, name, gradient=gradient, show=show)
+        self.o = o
+        o.display()
+
+class orchardPlot:
+    def __init__(self, experiment, name, gradient=None, show='all'):
+        self.data = experiment.data[name]
+        self.experiment = experiment
+        self.name = name
+        self.options = self.data.columns.tolist()
+        if show != 'all':
+            for i in self.options.copy():
+                if i not in show:
+                    self.options.remove(i)
+        self.options.sort()
+        if not gradient:
+            gradient = self.options[0]
+        self.textbox = wd.Dropdown(
+                description='Gradient: ',
+                value=gradient,
+                options=self.options
+        )
+        self.textbox.observe(self.response, names="value")
+        self.plotOrchard(gradient)
+        
+    def validate(self):
+        return self.textbox.value in self.options
+
+    def response(self, change):
+        if self.validate():
+            with self.g.batch_update():
+                self.g.data[0].marker.color = self.data[self.textbox.value]
+                self.g.data[0].marker.colorbar.title = self.textbox.value
+                self.g.data[0].hovertemplate = 'Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>'                   
+
+    def plotOrchard(self, gradient):
+        """Takes in the name of the group in the experiment and the name of the 
+        variable used to create the color gradient"""
+        orchard = go.Scatter(x=self.data['Latitude'], y=self.data['Longitude'], marker=dict(color=self.data[gradient], colorbar=dict(title=gradient)), mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0))
+        go_layout = go.Layout(title=dict(text='Orchard Layout: ' + self.name), barmode='overlay', height=650, width=650, xaxis=dict(title='Latitude', fixedrange=True), yaxis=dict(title='Longitude', fixedrange=True), hovermode='closest')
+        self.g = go.FigureWidget(data=[orchard], layout=go_layout)
+        
+    def display(self):
+        container = wd.HBox([self.textbox])
+        display(wd.VBox([container, self.g]))
 
 class interactivePlot:
     def __init__(self, experiment, show='all'):
@@ -461,28 +500,28 @@ class interactivePlot:
         self.x_options = list(experiment.node.network.keys())
         self.y_options = self.x_options.copy()
         if show != 'all':
-                for i in self.x_options.copy():
-                        if i not in show:
-                                self.x_options.remove(i)
-                                self.y_options.remove(i)
+            for i in self.x_options.copy():
+                if i not in show:
+                    self.x_options.remove(i)
+                    self.y_options.remove(i)
         self.x_options.sort()
         self.y_options.sort()
         self.y_options += ['None (Distributions Only)']
         self.textbox1 = wd.Dropdown(
-                description='x-Axis Variable: ',
-                value=self.x_options[0],
-                options=self.x_options
+            description='x-Axis Variable: ',
+            value=self.x_options[0],
+            options=self.x_options
         )
         self.textbox2 = wd.Dropdown(
-                description='y-Axis Variable: ',
-                value=self.y_options[0],
-                options=self.y_options
+            description='y-Axis Variable: ',
+            value=self.y_options[0],
+            options=self.y_options
         )
         self.button = wd.RadioButtons(
-                options=list(experiment.data.keys()) + ['All'],
-                layout={'width': 'max-content'},
-                description='Group',
-                disabled=False
+            options=list(experiment.data.keys()) + ['All'],
+            layout={'width': 'max-content'},
+            description='Group',
+            disabled=False
         )
         self.observe()
         self.showTrace()
@@ -493,12 +532,31 @@ class interactivePlot:
         display(self.button)
         display(Nothing(), display_id='1')
         self.button.layout.display = 'none'
+    
+    def display_values(self, group):
+        text = ""
+        xType, yType = self.experiment.node.nodeDict()[self.textbox1.value].vartype, self.experiment.node.nodeDict()[self.textbox2.value].vartype
+        if xType != 'categorical' and yType != 'categorical':
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                r = sp.pearsonr(self.experiment.data[group][self.textbox1.value], self.experiment.data[group][self.textbox2.value])
+            text += group + ': ' + 'Correlation (r) is ' + '{0:#.3f}, '.format(r[0]) + 'P-value is ' + '{0:#.3g}'.format(r[1])
+        return text
 
     def showTrace(self):
         traces = []
+        annotations = []
+        annotation_y = -0.20 - 0.02*len(self.experiment.group_names)
         for group in self.experiment.group_names:
             traces += [self.construct_trace(self.x_options[0], self.y_options[0], self.choose_trace(self.x_options[0], self.y_options[0]))(x=self.experiment.data[group][self.x_options[0]], y=self.experiment.data[group][self.y_options[0]], name=group)]
-        go_layout = go.Layout(title=dict(text=self.x_options[0] + " vs. " + self.y_options[0]), barmode='overlay', height=500, width=800, xaxis=dict(title=self.x_options[0]), yaxis=dict(title=self.y_options[0]))
+            annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
+            annotation_y += -0.05
+        go_layout = go.Layout(title=dict(text=self.x_options[0] + " vs. " + self.y_options[0]),
+                              barmode='overlay',
+                              height=500+50,
+                              width=800,
+                              xaxis=dict(title=self.x_options[0]), yaxis=dict(title=self.y_options[0]),
+                              annotations = annotations, margin=dict(b=80+50))
         self.g = go.FigureWidget(data=traces, layout=go_layout)
 
     def observe(self):
@@ -594,9 +652,11 @@ class interactivePlot:
                         self.g.layout.xaxis.title = self.textbox1.value
                         self.g.layout.yaxis.title = self.textbox2.value
                         self.g.layout.title = self.textbox1.value + " vs. " + self.textbox2.value
-                        self.g.update_layout({'height':500, 'width':800})
+                        self.g.update_layout({'height':550, 'width':800})
                         update_display(Nothing(), display_id='1')
                         self.button.layout.display = 'none'
+                        for i in range(len(self.experiment.group_names)):
+                            self.g.layout.annotations[i].text = self.display_values(self.experiment.group_names[i])
             else:
                 with self.g.batch_update():
                     if self.experiment.node.nodeDict()[self.textbox1.value].vartype == "categorical":
@@ -613,6 +673,8 @@ class interactivePlot:
                     self.g.layout.yaxis.title = "Count"
                     self.g.layout.title = self.textbox1.value
                     self.g.plotly_restyle({'type':'histogram'})
+                    for i in range(len(self.experiment.group_names)):
+                            self.g.layout.annotations[i].text = ""
 
 class Nothing:
     def __init__(self):
