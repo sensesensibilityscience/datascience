@@ -445,23 +445,25 @@ class Experiment:
         self.p = p
         p.display()
 
-    def plotOrchard(self, name, gradient=None, show='all'):
+    def plotOrchard(self, gradient=None, show='all'):
         """Takes in the name of the group in the experiment and the name of the 
         variable used to create the color gradient"""
-        o = orchardPlot(self, name, gradient=gradient, show=show)
+        o = orchardPlot(self, gradient=gradient, show=show)
         self.o = o
         o.display()
 
 class orchardPlot:
-    def __init__(self, experiment, name, gradient=None, show='all'):
-        self.data = experiment.data[name]
+    def __init__(self, experiment, gradient=None, show='all'):
+        self.data = experiment.data
         self.experiment = experiment
-        self.name = name
-        self.options = self.data.columns.tolist()
+        self.options = self.data[experiment.group_names[0]].columns.tolist()
         if show != 'all':
             for i in self.options.copy():
                 if i not in show:
                     self.options.remove(i)
+        for name in experiment.node.nodeDict():
+            if experiment.node.nodeDict()[name].vartype == 'categorical' and name in show:
+                self.options.remove(name)
         self.options.sort()
         if not gradient:
             gradient = self.options[0]
@@ -479,16 +481,26 @@ class orchardPlot:
     def response(self, change):
         if self.validate():
             with self.g.batch_update():
-                self.g.data[0].marker.color = self.data[self.textbox.value]
-                self.g.data[0].marker.colorbar.title = self.textbox.value
-                self.g.data[0].hovertemplate = 'Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>'                   
+                for i, name in enumerate(self.experiment.group_names):
+                    self.g.data[i].marker.color = self.data[name][self.textbox.value]
+                    self.g.data[i].marker.colorbar.title = self.textbox.value
+                    self.g.data[i].hovertemplate = 'Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>'
 
     def plotOrchard(self, gradient):
         """Takes in the name of the group in the experiment and the name of the 
         variable used to create the color gradient"""
-        orchard = go.Scatter(x=self.data['Latitude'], y=self.data['Longitude'], marker=dict(color=self.data[gradient], colorbar=dict(title=gradient)), mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0))
-        go_layout = go.Layout(title=dict(text='Orchard Layout: ' + self.name), barmode='overlay', height=650, width=650, xaxis=dict(title='Latitude', fixedrange=True), yaxis=dict(title='Longitude', fixedrange=True), hovermode='closest')
-        self.g = go.FigureWidget(data=[orchard], layout=go_layout)
+        traces = []
+        for i, name in enumerate(self.experiment.group_names):
+            traces += [go.Scatter(x=self.data[name]['Latitude'], y=self.data[name]['Longitude'],
+                                 marker=dict(color=self.data[name][gradient], coloraxis='coloraxis'),
+                                 mode='markers',
+                                 hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>'+ self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0), marker_symbol=i)]
+        width = 700 if len(self.experiment.group_names) == 1 else 800
+        go_layout = go.Layout(title=dict(text='Orchard Layout'),barmode='overlay', height=650, width=width,
+                              xaxis=dict(title='Latitude', fixedrange=True), yaxis=dict(title='Longitude', fixedrange=True),
+                              hovermode='closest', legend=dict(yanchor="top", y=1, xanchor="right", x=1.45),
+                              coloraxis={'colorscale':'Plasma', 'colorbar':{'title':gradient}})
+        self.g = go.FigureWidget(data=traces, layout=go_layout)
         
     def display(self):
         container = wd.HBox([self.textbox])
