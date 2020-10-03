@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import ipywidgets as widgets
 
 class Test:
-    def __init__(self, config):
+    def __init__(self, config, data=None):
         '''
         config: {
         'mean_neg': ,
@@ -14,17 +14,25 @@ class Test:
         'label_neg': ,
         'label_pos':
         }
+        data is a nx3 array of numbers. [:,0] is test number, [:,1] column is count of positives [:,2] column is count of negatives
         '''
-        self.mean_neg = config['mean_neg']
-        self.mean_pos = config['mean_pos']
-        self.std_neg = config['std_neg']
-        self.std_pos = config['std_pos']
-        self.p_pos = config['p_pos']
-        self.title = config['title']
-        self.label_neg = config['label_neg']
-        self.label_pos = config['label_pos']
-        self.floor = config['floor'] if 'floor' in config.keys() else None
-        self.ceil = config['ceil'] if 'ceil' in config.keys() else None
+        if data is not None:
+            self.data = data
+            self.title = config['title']
+            self.label_neg = config['label_neg']
+            self.label_pos = config['label_pos']
+        else:
+            self.data = None
+            self.mean_neg = config['mean_neg']
+            self.mean_pos = config['mean_pos']
+            self.std_neg = config['std_neg']
+            self.std_pos = config['std_pos']
+            self.p_pos = config['p_pos']
+            self.title = config['title']
+            self.label_neg = config['label_neg']
+            self.label_pos = config['label_pos']
+            self.floor = config['floor'] if 'floor' in config.keys() else None
+            self.ceil = config['ceil'] if 'ceil' in config.keys() else None
         
     def singleTest(self):
         '''
@@ -44,28 +52,40 @@ class Test:
         if self.ceil != None:
             sample = min(self.ceil, sample)
         return [sample, posneg]
-        
+
     def generate(self, n):
         '''
         Generates table of test results
         '''
-        self.results = np.array([self.singleTest() for i in range(n)])
-    
+        if self.data is None: # From normal distribution
+            self.results = np.array([self.singleTest() for i in range(n)])
+        else: # From data
+            total = sum(self.data[:,1]) + sum(self.data[:,2])
+            pool = []
+            weights = []
+            for row in self.data:
+                pool.append([row[0], 1])
+                pool.append([row[0], 0])
+                weights.append(row[1]/total)
+                weights.append(row[2]/total)
+            ids = np.random.choice(range(len(pool)), size=n, p=weights)
+            self.results = np.array([pool[i] for i in ids])
+
     def countDiagnoses(self, threshold):
         '''
         Returns number of true/false pos/neg based on known test results and threshold
         threshold: above is positive, below is negative
         '''
-        true_pos = sum((self.results[:,0] > threshold) * (self.results[:,1] == 1))
-        true_neg = sum((self.results[:,0] <= threshold) * (self.results[:,1] == 0))
-        false_pos = sum((self.results[:,0] > threshold) * (self.results[:,1] == 0))
-        false_neg = sum((self.results[:,0] <= threshold) * (self.results[:,1] == 1))
+        true_pos = sum((self.results[:,0] >= threshold) * (self.results[:,1] == 1))
+        true_neg = sum((self.results[:,0] < threshold) * (self.results[:,1] == 0))
+        false_pos = sum((self.results[:,0] >= threshold) * (self.results[:,1] == 0))
+        false_neg = sum((self.results[:,0] < threshold) * (self.results[:,1] == 1))
         return true_pos, true_neg, false_pos, false_neg
     
-    def plotDiagnoses(self, threshold):
+    def plotDiagnoses(self, threshold, stepsize=None):
         tmin = min(self.results[:,0])
         tmax = max(self.results[:,0])
-        stepsize = (tmax-tmin)/100
+        stepsize = (tmax-tmin)/100 if stepsize is None else stepsize
         tmin -= 5*stepsize
         tmax += 5*stepsize
         bins = np.arange(tmin, tmax, stepsize)
@@ -92,10 +112,10 @@ class Test:
         print('False negative rates: {:.2f}%'.format(false_neg/(true_neg+false_neg)*100))
         print('Overall accuracy: {:.2f}%'.format((true_pos+true_neg)/(true_pos+true_neg+false_pos+false_neg)*100))
         
-    def plot(self):
+    def plot(self, stepsize=None):
         tmin = min(self.results[:,0])
         tmax = max(self.results[:,0])
-        stepsize = (tmax-tmin)/100
+        stepsize = (tmax-tmin)/100 if stepsize is None else stepsize
         threshold = (tmin+tmax)/2
         tmin -= 5*stepsize
         tmax += 5*stepsize

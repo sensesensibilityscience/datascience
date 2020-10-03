@@ -136,12 +136,12 @@ class InterveneOptions:
             self.disabled = [False, False, False]
         else:
             self.disabled = disabled
+        self.is_categorical = node.vartype == 'categorical'
         self.name = node.name
-        self.text = wd.Label(value=self.name, layout=wd.Layout(width='150px'))
-        self.none = wd.RadioButtons(options=['None'], disabled=self.disabled[0], layout=wd.Layout(width='70px'))
+        self.text = wd.Label(value=self.name, layout=wd.Layout(width='180px'))
+        self.none = wd.RadioButtons(options=['No intervention'], disabled=self.disabled[0], layout=wd.Layout(width='150px'))
         self.fixed = wd.RadioButtons(options=['Fixed'], disabled=self.disabled[1], layout=wd.Layout(width='70px'))
         self.fixed.index = None
-        self.is_categorical = node.vartype == 'categorical'
         if self.is_categorical:
             fixed_arg = wd.Dropdown(options=node.categories, disabled=True, layout=wd.Layout(width='100px'))
         else:
@@ -150,9 +150,9 @@ class InterveneOptions:
         self.range_visibility = 'hidden' if self.is_categorical else 'visible'
         self.range = wd.RadioButtons(options=['Range'], disabled=self.disabled[2], layout=wd.Layout(width='70px', visibility=self.range_visibility))
         self.range.index = None
-        self.range_arg1_text = wd.Label(value='from', layout=wd.Layout(visibility=self.range_visibility))
+        self.range_arg1_text = wd.Label(value='from', layout=wd.Layout(visibility=self.range_visibility, width='30px'))
         self.range_arg1 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
-        self.range_arg2_text = wd.Label(value='to', layout=wd.Layout(visibility=self.range_visibility))
+        self.range_arg2_text = wd.Label(value='to', layout=wd.Layout(visibility=self.range_visibility, width='15px'))
         self.range_arg2 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
         self.range_rand = wd.Checkbox(description='Randomise Order', disabled=True, indent=False, layout=wd.Layout(visibility=self.range_visibility))
         self.none.observe(self.none_observer, names=['value'])
