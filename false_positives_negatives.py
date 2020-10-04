@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import ipywidgets as widgets
-#hi winston
+
 class Test:
     def __init__(self, config, data=None):
         '''
@@ -33,7 +33,7 @@ class Test:
             self.label_pos = config['label_pos']
             self.floor = config['floor'] if 'floor' in config.keys() else None
             self.ceil = config['ceil'] if 'ceil' in config.keys() else None
-        #JUST TESTING
+
     def singleTest(self):
         '''
         Generates a single row [test_result_from_normal_distribution, known_1_or_0]
