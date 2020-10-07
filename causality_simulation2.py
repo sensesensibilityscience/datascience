@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ipywidgets as wd
 import pandas as pd
-from IPython.display import display, update_display, Javascript
+from IPython.display import display, update_display, Javascript, HTML
 from inspect import signature
 from graphviz import Digraph
 import scipy.stats as sp
@@ -10,6 +10,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import warnings
 import re
+
+display(HTML('''<style>
+    [title="Assigned samples:"] { min-width: 150px; }
+</style>'''))
 
 def dialog(title, body, button):
     display(Javascript("require(['base/js/dialog'], function(dialog) {dialog.modal({title: '%s', body: '%s', buttons: {'%s': {}}})});" % (title, body, button)))
@@ -201,7 +205,7 @@ class Experiment:
         self.data = {} # {group_name: {node_name: [val, ...], ...}, ...}
         self.p = None
 
-    def assignment(self, config=None):
+    def assignment(self, config=None, hide_random=False):
         '''
         UI for group assignment of samples
         config: list of dicts, each being {'name': group_name, 'samples_str': string}
@@ -209,7 +213,7 @@ class Experiment:
         '''
         self.group_assignment = groupAssignment(self)
         if config is not None:
-            self.group_assignment.setAssignment(config)
+            self.group_assignment.setAssignment(config, hide_random)
             self.submitAssignment()
 
     def submitAssignment(self, sender=None):
@@ -236,6 +240,7 @@ class Experiment:
             d = dict()
             for node_name, arr in self.init_data.items():
                 d[node_name] = arr[mask]
+            d['id'] = np.array(g['samples'])+1
             self.data[g['name']] = pd.DataFrame(d)
         self.plotAssignment()
 
@@ -243,7 +248,8 @@ class Experiment:
         '''
         Can be implemented differently in different scenarios
         '''
-        self.plotOrchard()
+        pass
+        # self.plotOrchard()
 
     def setting(self, show='all', config=None, disable=[]):
         '''
@@ -294,7 +300,7 @@ class groupAssignment:
         '''
         self.experiment = experiment
         wd.Label(value='Sample size: %d' % self.experiment.N)
-        self.randomise_button = wd.Button(description='Randomise assignment')
+        self.randomise_button = wd.Button(description='Randomise assignment', layout=wd.Layout(width='180px'))
         self.group_assignments = [singleGroupAssignment(1)]
         self.add_group_button = wd.Button(description='Add another group')
         self.submit_button = wd.Button(description='Visualise assignment')
@@ -304,7 +310,7 @@ class groupAssignment:
         self.add_group_button.on_click(self.addGroup)
         self.submit_button.on_click(self.experiment.submitAssignment)
 
-    def setAssignment(self, config):
+    def setAssignment(self, config, hide_random):
         for i in range(len(config)-1):
             self.addGroup()
         self.greyAll()
@@ -315,6 +321,8 @@ class groupAssignment:
         else:
             for i in range(len(config)):
                 self.group_assignments[i].setSamples(config[i]['samples_str'])
+        if hide_random:
+            self.randomise_button.layout.visibility = 'hidden'
 
     def addGroup(self, sender=None):
         i = self.group_assignments[-1].i
@@ -354,9 +362,9 @@ class singleGroupAssignment:
         '''
         self.i = i # Group number
         self.name = 'Group %d' % i
-        i_text = wd.Label(value=self.name)
+        i_text = wd.Label(value=self.name, layout=wd.Layout(width='70px'))
         self.group_name = wd.Text(description='Name:')
-        self.samples = wd.Text(description='Assigned samples:')
+        self.samples = wd.Text(description='Assigned samples:', layout=wd.Layout(width='400px'))
         self.box = wd.HBox([i_text, self.group_name, self.samples])
 
     def getAssignment(self):
@@ -929,7 +937,7 @@ basketball
 '''
 shottype_node = CausalNode('categorical', choice(['Above head', 'Layup', 'Hook shot'], weights=[6, 3, 2]), name='Shot Type', categories=['Above head', 'Layup', 'Hook shot'])
 hours_node = CausalNode('continuous', choice(np.linspace(0, 14, 30), weights=1/np.linspace(1, 15, 30)), name='Hours Practised per Week')
-height_node = CausalNode('continuous', gaussian(170, 10), name='Height (cm)', min=150, max=190)
+height_node = CausalNode('continuous', gaussian(170, 10), name='Height (cm)', min=150, max=190, init=True)
 ability_node = CausalNode('continuous', linearFunc(0, 1, 0, 10, 1, 20, linear(150, 40, 190, 60, fuzz=10)), name='Ability', causes=[height_node, hours_node])
 shottype_modifier = {'Above head': (1, 0), 'Layup': (0.6, 0), 'Hook shot': (0.3, 0)}
 success_node = CausalNode('continuous', categoricalLin(shottype_modifier), name='Success Rate', causes=[ability_node, shottype_node])
