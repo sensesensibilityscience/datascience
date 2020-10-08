@@ -495,11 +495,13 @@ class orchardPlot:
             traces += [go.Scatter(x=self.data[name]['Latitude'], y=self.data[name]['Longitude'],
                                  marker=dict(color=self.data[name][gradient], coloraxis='coloraxis'),
                                  mode='markers',
+                                 name=name,
                                  hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>'+ self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0), marker_symbol=i)]
-        width = 700 if len(self.experiment.group_names) == 1 else 800
+        width = 700 if (len(self.experiment.group_names) == 1) else 725 + max([len(name) for name in self.experiment.group_names])*6.5
         go_layout = go.Layout(title=dict(text='Orchard Layout'),barmode='overlay', height=650, width=width,
-                              xaxis=dict(title='Latitude', fixedrange=True), yaxis=dict(title='Longitude', fixedrange=True),
-                              hovermode='closest', legend=dict(yanchor="top", y=1, xanchor="right", x=1.45),
+                              xaxis=dict(title='Latitude', fixedrange=True, range=[-50, 1050]), 
+                              yaxis=dict(title='Longitude', fixedrange=True, range=[-50, 1050]),
+                              hovermode='closest', legend=dict(yanchor="top", y=1, xanchor="left", x=1.25),
                               coloraxis={'colorscale':'Plasma', 'colorbar':{'title':gradient}})
         self.g = go.FigureWidget(data=traces, layout=go_layout)
         
@@ -596,7 +598,7 @@ class interactivePlot:
                               width=800,
                               xaxis=dict(title=x), yaxis=dict(title=y),
                               annotations = annotations,
-                              margin=dict(b=80+50))
+                              margin=dict(b=80+50, r=200, autoexpand=False))
         return traces, go_layout
     
     def initTraces(self):
