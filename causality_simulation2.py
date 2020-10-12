@@ -239,17 +239,19 @@ class Experiment:
             mask = [i in g['samples'] for i in range(self.N)]
             d = dict()
             for node_name, arr in self.init_data.items():
-                d[node_name] = arr[mask]
+                d[node_name] = arr[mask] 
             d['id'] = np.array(g['samples'])+1
             self.data[g['name']] = pd.DataFrame(d)
-        self.plotAssignment()
+        if self.p:
+            self.p.updateAssignments()
+        else:
+            self.plotAssignment()
 
     def plotAssignment(self):
         '''
         Can be implemented differently in different scenarios
         '''
-        pass
-        # self.plotOrchard()
+        self.p = assignmentPlot(self)
 
     def setting(self, show='all', config=None, disable=[]):
         '''
@@ -539,6 +541,35 @@ class singleNodeInterventionSetting:
             else:
                 return ['range', self.range_arg1.value, self.range_arg2.value]
 
+class assignmentPlot:
+    def __init__(self, experiment):
+        self.experiment = experiment
+        self.group_names = experiment.group_names
+        self.data = experiment.data
+        self.buildTraces()
+        width = 575 if len(experiment.group_names) == 1 else 650
+        self.layout = go.Layout(title=dict(text='Tree Group Assignments'),barmode='overlay', height=500, width=600,
+                              xaxis=dict(title='Longitude', fixedrange=True), yaxis=dict(title='Latitude', fixedrange=True),
+                              hovermode='closest',
+                              margin=dict(b=80+50, r=200, autoexpand=False))
+        self.plot = go.FigureWidget(data=self.traces, layout=self.layout)
+        display(self.plot)
+        
+    def buildTraces(self):
+        self.traces = []
+        self.group_names = self.experiment.group_names
+        self.data = self.experiment.data
+        for i, name in enumerate(self.group_names):
+            self.traces += [go.Scatter(x=self.data[name]['Longitude'], y=self.data[name]['Latitude'], mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>', marker_symbol=i, name=name)]
+        
+    def updateAssignments(self):
+        self.buildTraces()
+        with self.plot.batch_update():
+            self.plot.data = []
+            for trace in self.traces:
+                self.plot.add_traces(trace)
+            self.plot.layout = self.layout
+
 class orchardPlot:
     def __init__(self, experiment, gradient=None, show='all'):
         self.data = experiment.data
@@ -581,11 +612,13 @@ class orchardPlot:
             traces += [go.Scatter(x=self.data[name]['Latitude'], y=self.data[name]['Longitude'],
                                  marker=dict(color=self.data[name][gradient], coloraxis='coloraxis'),
                                  mode='markers',
+                                 name=name,
                                  hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>'+ self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0), marker_symbol=i)]
-        width = 700 if len(self.experiment.group_names) == 1 else 800
+        width = 700 if (len(self.experiment.group_names) == 1) else 725 + max([len(name) for name in self.experiment.group_names])*6.5
         go_layout = go.Layout(title=dict(text='Orchard Layout'),barmode='overlay', height=650, width=width,
-                              xaxis=dict(title='Latitude', fixedrange=True), yaxis=dict(title='Longitude', fixedrange=True),
-                              hovermode='closest', legend=dict(yanchor="top", y=1, xanchor="right", x=1.45),
+                              xaxis=dict(title='Latitude', fixedrange=True, range=[-50, 1050]), 
+                              yaxis=dict(title='Longitude', fixedrange=True, range=[-50, 1050]),
+                              hovermode='closest', legend=dict(yanchor="top", y=1, xanchor="left", x=1.25),
                               coloraxis={'colorscale':'Plasma', 'colorbar':{'title':gradient}})
         self.g = go.FigureWidget(data=traces, layout=go_layout)
         
@@ -623,7 +656,7 @@ class interactivePlot:
             disabled=False
         )
         self.observe()
-        self.showTrace()
+        self.initTraces()
 
     def display(self):
         container = wd.HBox([self.textbox1, self.textbox2])
@@ -642,21 +675,62 @@ class interactivePlot:
             text += group + ': ' + 'Correlation (r) is ' + '{0:#.3f}, '.format(r[0]) + 'P-value is ' + '{0:#.3g}'.format(r[1])
         return text
 
-    def showTrace(self):
+    def createTraces(self, x, y):
         traces = []
         annotations = []
         annotation_y = -0.20 - 0.02*len(self.experiment.group_names)
-        for group in self.experiment.group_names:
-            traces += [self.construct_trace(self.x_options[0], self.y_options[0], self.choose_trace(self.x_options[0], self.y_options[0]))(x=self.experiment.data[group][self.x_options[0]], y=self.experiment.data[group][self.y_options[0]], name=group)]
-            annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
-            annotation_y += -0.05
-        go_layout = go.Layout(title=dict(text=self.x_options[0] + " vs. " + self.y_options[0]),
+        traceType = self.choose_trace(x, y)
+        if traceType == 'histogram':
+            for group in self.experiment.group_names:
+                data = self.experiment.data[group]
+                if self.experiment.node.nodeDict()[x].vartype == 'categorical':
+                    opacity = 1
+                else:
+                    opacity = 0.75
+                traces += [go.Histogram(x=data[x], name=group, bingroup=1, opacity=opacity)]
+                y = 'Count'
+        elif traceType == 'scatter':
+            for group in self.experiment.group_names:
+                data = self.experiment.data[group]
+                traces += [go.Scatter(x=data[x], y=data[y], mode='markers', opacity=0.75, name=group)]
+                annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
+                annotation_y += -0.05
+        elif traceType == 'bar':
+            for group in self.experiment.group_names:
+                avg = self.experiment.data.groupby(x).agg('mean')
+                std = self.experiment.data.groupby(x).agg('std')[y]
+                traces += [go.Bar(x=list(avg.index), y=avg[y], name=group, error_y=dict(type='data', array=std[y]))]
+                annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
+                annotation_y += -0.05
+        elif traceType == 'barh':
+            for group in self.experiment.group_names:
+                avg = self.experiment.data.groupby(y).agg('mean')
+                std = self.experiment.data.groupby(y).agg('std')[x]
+                traces += [go.Bar(x=avg[x], y=list(avg.index), name=group, error_y=dict(type='data', array=std[x]), orientation='h')]
+                annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
+                annotation_y += -0.05
+        go_layout = go.Layout(title=dict(text=x if traceType == 'histogram' else x + " vs. " + y ),
                               barmode='overlay',
                               height=500+50,
                               width=800,
-                              xaxis=dict(title=self.x_options[0]), yaxis=dict(title=self.y_options[0]),
-                              annotations = annotations, margin=dict(b=80+50))
-        self.g = go.FigureWidget(data=traces, layout=go_layout)
+                              xaxis=dict(title=x), yaxis=dict(title=y),
+                              annotations = annotations,
+                              margin=dict(b=80+50, r=200, autoexpand=False))
+        return traces, go_layout
+    
+    def initTraces(self):
+        traces, layout = self.createTraces(self.x_options[0], self.y_options[0])
+        self.g = go.FigureWidget(layout=layout)
+        for t in traces:
+            self.g.add_traces(t)
+            
+    def updateTraces(self):
+        self.g.data = []
+        traces, layout = self.createTraces(self.textbox1.value, self.textbox2.value)
+        for t in traces:
+            self.g.add_traces(t)
+        self.g.layout.annotations = layout.annotations
+        self.g.layout = layout
 
     def observe(self):
         self.textbox1.observe(self.response, names="value")
@@ -664,6 +738,8 @@ class interactivePlot:
         self.button.observe(self.update_table, names='value')
 
     def choose_trace(self, x, y):
+        if y == 'None (Distributions Only)':
+            return 'histogram'
         xType, yType = self.experiment.node.nodeDict()[x].vartype, self.experiment.node.nodeDict()[y].vartype
         if xType != 'categorical' and yType != 'categorical':
             return 'scatter'
@@ -673,20 +749,6 @@ class interactivePlot:
             return 'barh'
         else:
             return 'table'
-
-    def construct_trace(self, x, y, traceType):
-        if traceType == 'scatter':
-            return lambda x={}, y={}, name=None: go.Scatter(x=x, y=y, mode='markers', opacity=0.75, name=name)
-        elif traceType == 'bar':
-            avg = self.experiment.data.groupby(x).agg('mean')
-            std = self.experiment.data.groupby(x).agg('std')[y]
-            return lambda x={}, y={}, name=None: go.Bar(x=list(avg.index), y=avg[y], name=name, error_y=dict(type='data', array=std[y]))
-        elif traceType == 'barh':
-            avg = self.experiment.data.groupby(y).agg('mean')
-            std = self.experiment.data.groupby(y).agg('std')[x]
-            return lambda x={}, y={}, name=None: go.Bar(x=avg[x], y=list(avg.index), name=name, error_y=dict(type='data', array=std[x]), orientation='h')
-        elif traceType == 'table':
-            return lambda x={}, y={}, name=None: go.Scatter()
 
     def pivot_table(self):
         if self.textbox1.value == self.textbox2.value:
@@ -710,70 +772,18 @@ class interactivePlot:
 
     def response(self, change):
         if self.validate():
-            if self.textbox2.value in self.x_options:
-                traceType = self.choose_trace(self.textbox1.value, self.textbox2.value)
-                with self.g.batch_update():
-                    if traceType == 'table':
-                        self.g.update_layout({'height':10, 'width':10})
-                        self.g.layout.xaxis.title = ""
-                        self.g.layout.yaxis.title = ""
-                        self.g.layout.title = ""
-                        self.button.layout.display = 'flex'
-                    else:
-                        if traceType == 'scatter':
-                            for i in range(len(self.experiment.group_names)):
-                                self.g.data[i].x = self.experiment.data[self.experiment.group_names[i]][self.textbox1.value]
-                                self.g.data[i].y = self.experiment.data[self.experiment.group_names[i]][self.textbox2.value]
-                                self.g.data[i].error_y = {'visible':False}
-                                self.g.data[i].error_x = {'visible':False}
-                                self.g.data[i].orientation = None
-                            self.g.plotly_restyle({'type':'scatter', 'opacity':0.75})
-                        elif traceType == 'bar':
-                            self.g.plotly_restyle({'type':'bar', 'opacity':1})
-                            for i in range(len(self.experiment.group_names)):
-                                avg = self.experiment.data[self.experiment.group_names[i]].groupby(self.textbox1.value).agg('mean')
-                                std = self.experiment.data[self.experiment.group_names[i]].groupby(self.textbox1.value).agg('std')[self.textbox2.value]
-                                self.g.data[i].x = list(avg.index)
-                                self.g.data[i].y = avg[self.textbox2.value]
-                                self.g.data[i].error_y = {'type':'data', 'array':std, 'visible':True}
-                                self.g.data[i].error_x = {'visible':False}
-                                self.g.data[i].orientation = None
-                        elif traceType == 'barh':
-                            self.g.plotly_restyle({'type':'bar', 'opacity':1})
-                            for i in range(len(self.experiment.group_names)):
-                                avg = self.experiment.data[self.experiment.group_names[i]].groupby(self.textbox2.value).agg('mean')
-                                std = self.experiment.data[self.experiment.group_names[i]].groupby(self.textbox2.value).agg('std')[self.textbox1.value]
-                                self.g.data[i].x = avg[self.textbox1.value]
-                                self.g.data[i].y = list(avg.index)
-                                self.g.data[i].error_x = {'type':'data', 'array':std, 'visible':True}
-                                self.g.data[i].orientation = 'h'
-                                self.g.data[i].error_y  = {'visible':False}
-                        self.g.layout.xaxis.title = self.textbox1.value
-                        self.g.layout.yaxis.title = self.textbox2.value
-                        self.g.layout.title = self.textbox1.value + " vs. " + self.textbox2.value
-                        self.g.update_layout({'height':550, 'width':800})
-                        update_display(Nothing(), display_id='1')
-                        self.button.layout.display = 'none'
-                        for i in range(len(self.experiment.group_names)):
-                            self.g.layout.annotations[i].text = self.display_values(self.experiment.group_names[i])
-            else:
-                with self.g.batch_update():
-                    if self.experiment.node.nodeDict()[self.textbox1.value].vartype == "categorical":
-                        self.g.plotly_restyle({'opacity':1})
-                    else:
-                        self.g.plotly_restyle({'opacity':0.75})
-                    for i in range(len(self.experiment.group_names)):
-                        self.g.data[i].x = self.experiment.data[self.experiment.group_names[i]][self.textbox1.value]
-                        self.g.data[i].y = None
-                        self.g.data[i].error_x = {'visible':False}
-                        self.g.data[i].error_y = {'visible':False}
-                        self.g.data[i].orientation = None
-                    self.g.layout.xaxis.title = self.textbox1.value
-                    self.g.layout.yaxis.title = "Count"
-                    self.g.layout.title = self.textbox1.value
-                    self.g.plotly_restyle({'type':'histogram'})
-                    for i in range(len(self.experiment.group_names)):
-                            self.g.layout.annotations[i].text = ""
+            traceType = self.choose_trace(self.textbox1.value, self.textbox2.value)
+            with self.g.batch_update():
+                if traceType == 'table':
+                    self.g.update_layout({'height':10, 'width':10})
+                    self.g.layout.xaxis.title = ""
+                    self.g.layout.yaxis.title = ""
+                    self.g.layout.title = ""
+                    self.button.layout.display = 'flex'
+                else:
+                    self.updateTraces()
+                    update_display(Nothing(), display_id='1')
+                    self.button.layout.display = 'none'
 
 class Nothing:
     def __init__(self):
