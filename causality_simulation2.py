@@ -276,6 +276,8 @@ class Experiment:
             mask = [i in self.groups[j]['samples'] for i in range(self.N)]
             for node_name, arr in self.init_data.items():
                 g['intervention'][node_name] = ['array', arr[mask]]
+            if 'N' not in g.keys():
+                g['N'] = len(self.groups[self.group_ids[g['name']]]['samples'])
             self.data[g['name']] = self.node.generate(g['N'], intervention=g['intervention'])
         if msg:
             display(wd.Label(value='Data from experiment collected!'))
