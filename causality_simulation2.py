@@ -559,11 +559,11 @@ class assignmentPlot:
         self.group_names = experiment.group_names
         self.data = experiment.data
         self.buildTraces()
-        width = 575 if len(experiment.group_names) == 1 else 650
-        self.layout = go.Layout(title=dict(text='Tree Group Assignments'),barmode='overlay', height=500, width=600,
+        self.layout = go.Layout(title=dict(text='Tree Group Assignments'),barmode='overlay', height=650, width=800,
                               xaxis=dict(title='Longitude', fixedrange=True), yaxis=dict(title='Latitude', fixedrange=True),
                               hovermode='closest',
-                              margin=dict(b=80+50, r=200, autoexpand=False))
+                              margin=dict(b=80, r=200, autoexpand=False),
+                              showlegend=True)
         self.plot = go.FigureWidget(data=self.traces, layout=self.layout)
         display(self.plot)
         
@@ -613,7 +613,7 @@ class orchardPlot:
             with self.g.batch_update():
                 for i, name in enumerate(self.experiment.group_names):
                     self.g.data[i].marker.color = self.data[name][self.textbox.value]
-                    self.g.data[i].marker.colorbar.title = self.textbox.value
+                    self.g.update_layout({'coloraxis':{'colorscale':'Plasma', 'colorbar':{'title':self.textbox.value}}})
                     self.g.data[i].hovertemplate = 'Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>'
 
     def plotOrchard(self, gradient):
