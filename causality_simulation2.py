@@ -11,6 +11,8 @@ import plotly.graph_objects as go
 import warnings
 import re
 
+# TODO: Look at how Experiment parses init_data and migrate that to CausalNetwork
+
 display(HTML('''<style>
     [title="Assigned samples:"] { min-width: 150px; }
 </style>'''))
@@ -145,12 +147,23 @@ class CausalNetwork:
     def drawNetwork(self):
         return self.root_node.drawNetwork()
 
-    def generate(self, config, runs):
+    def generate(self, init_data, config, runs):
         '''
         Performs experiment many times (runs) according to config, returns data
+        config: dict {'name': group_name, 'samples_str': '1-100', 'intervention': {...}}
         '''
         self.data = dict()
+        is_random = ''.join([g['samples_str'] for g in config]) == ''
+        group_names = []
         for c in config:
+            group_names.append(c['name'])
+        N = len(init_data[0]['samples'])
+        randomAsign()
+        if is_random:
+            for i in range(len(group_names)):
+                c[group_names[i]]
+        for c in config
+            N = (c['samples_str'])
             self.data[c['name']] = [self.root_node.generate(c['N'], intervention=c['intervention']) for i in range(runs)]
 
     def statsContinuous(self, group, varx, vary):
@@ -344,13 +357,10 @@ class groupAssignment:
         Randomly assigns samples to groups and changes settings in UI
         '''
         N = self.experiment.N
-        arr = np.arange(N)
-        np.random.shuffle(arr)
         N_group = len(self.group_assignments)
+        assigned_ids = randomAssign(N, N_group)
         for i in range(N_group):
-            start = i*N//N_group
-            end = min((i+1)*N//N_group, N)
-            self.group_assignments[i].samples.value = array2Text(arr[start:end])
+            self.group_assignments[i].samples.value = array2Text(assigned_ids[i])
 
     def greyAll(self):
         self.randomise_button.disabled = True
@@ -830,6 +840,20 @@ def array2Text(ids):
             segments.append(s)
             start = ids[j+1]
     return ','.join(segments)
+
+def randomAssign(N, N_group):
+    '''
+    Randomly assigns N total items into N_group groups
+    Returns a list of lists of ids
+    '''
+    arr = np.arange(N)
+    np.random.shuffle(arr)
+    result = []
+    for i in range(N_group):
+        start = i*N//N_group
+        end = min((i+1)*N//N_group, N)
+        result.append(arr[start:end])
+    return result
 
 # Some functions for causal relations
 def gaussian(mean, std):
