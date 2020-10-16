@@ -101,7 +101,6 @@ class CausalNode:
         intervention format:
         ['fixed', val] (val could be number or name of category)
         ['range', start, end]
-        ['range_rand', start, end]
         ['array', [...]] array size must be n
         '''
         fix_all = {} # {name: [val, ...], ...}
@@ -110,11 +109,6 @@ class CausalNode:
                 fix_all[name] = np.array([args[1] for i in range(n)])
             elif args[0] == 'range':
                 fix_all[name] = np.linspace(args[1], args[2], n)
-                if self.vartype == 'discrete':
-                    fix_all[name] = np.rint(fix_all[name])
-            elif args[0] == 'range_rand':
-                fix_all[name] = np.linspace(args[1], args[2], n)
-                np.random.shuffle(fix_all[name])
                 if self.vartype == 'discrete':
                     fix_all[name] = np.rint(fix_all[name])
             elif args[0] == 'array':
@@ -477,11 +471,10 @@ class singleNodeInterventionSetting:
         self.range_arg1 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
         self.range_arg2_text = wd.Label(value='to', layout=wd.Layout(visibility=self.range_visibility, width='15px'))
         self.range_arg2 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
-        self.range_rand = wd.Checkbox(description='Randomise order', disabled=True, indent=False, layout=wd.Layout(visibility=self.range_visibility))
         self.none.observe(self.none_observer, names=['value'])
         self.fixed.observe(self.fixed_observer, names=['value'])
         self.range.observe(self.range_observer, names=['value'])
-        self.box = wd.HBox([self.indent, self.text, self.none, self.fixed, self.fixed_arg, self.range, self.range_arg1_text, self.range_arg1, self.range_arg2_text, self.range_arg2, self.range_rand])
+        self.box = wd.HBox([self.indent, self.text, self.none, self.fixed, self.fixed_arg, self.range, self.range_arg1_text, self.range_arg1, self.range_arg2_text, self.range_arg2])
         display(self.box)
         if self.disable:
             self.greyAll()
@@ -493,7 +486,6 @@ class singleNodeInterventionSetting:
         self.range.disabled = True
         self.range_arg1.disabled = True
         self.range_arg2.disabled = True
-        self.range_rand.disabled = True
 
     def setIntervention(self, intervention):
         if intervention[0] == 'fixed':
@@ -503,11 +495,6 @@ class singleNodeInterventionSetting:
             self.range.index = 0
             self.range_arg1.value = intervention[1]
             self.range_arg2.value = intervention[2]
-        elif intervention[0] == 'range_rand':
-            self.range.index = 0
-            self.range_arg1.value = intervention[1]
-            self.range_arg2.value = intervention[2]
-            self.range_rand.value = True
 
     # Radio button .index = None if off, .index = 0 if on
     def none_observer(self, sender):
@@ -517,7 +504,6 @@ class singleNodeInterventionSetting:
             self.range.index = None
             self.range_arg1.disabled = True
             self.range_arg2.disabled = True
-            self.range_rand.disabled = True
         if self.disable:
             self.greyAll()
 
@@ -528,7 +514,6 @@ class singleNodeInterventionSetting:
             self.range.index = None
             self.range_arg1.disabled = True
             self.range_arg2.disabled = True
-            self.range_rand.disabled = True
         if self.disable:
             self.greyAll()
 
@@ -539,7 +524,6 @@ class singleNodeInterventionSetting:
             self.fixed_arg.disabled = True
             self.range_arg1.disabled = False
             self.range_arg2.disabled = False
-            self.range_rand.disabled = False
         if self.disable:
             self.greyAll()
 
@@ -552,10 +536,7 @@ class singleNodeInterventionSetting:
         elif self.fixed.index == 0:
             return ['fixed', self.fixed_arg.value]
         elif self.range.index == 0:
-            if self.range_rand.value:
-                return ['range_rand', self.range_arg1.value, self.range_arg2.value]
-            else:
-                return ['range', self.range_arg1.value, self.range_arg2.value]
+            return ['range', self.range_arg1.value, self.range_arg2.value]
 
 class assignmentPlot:
     def __init__(self, experiment):
