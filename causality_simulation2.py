@@ -11,6 +11,9 @@ import plotly.graph_objects as go
 import warnings
 import re
 
+# TODO: Look at how Experiment parses init_data and migrate that to CausalNetwork
+# Remove 'randomise' checkbox
+
 display(HTML('''<style>
     [title="Assigned samples:"] { min-width: 150px; }
 </style>'''))
@@ -98,7 +101,6 @@ class CausalNode:
         intervention format:
         ['fixed', val] (val could be number or name of category)
         ['range', start, end]
-        ['range_rand', start, end]
         ['array', [...]] array size must be n
         '''
         fix_all = {} # {name: [val, ...], ...}
@@ -107,11 +109,6 @@ class CausalNode:
                 fix_all[name] = np.array([args[1] for i in range(n)])
             elif args[0] == 'range':
                 fix_all[name] = np.linspace(args[1], args[2], n)
-                if self.vartype == 'discrete':
-                    fix_all[name] = np.rint(fix_all[name])
-            elif args[0] == 'range_rand':
-                fix_all[name] = np.linspace(args[1], args[2], n)
-                np.random.shuffle(fix_all[name])
                 if self.vartype == 'discrete':
                     fix_all[name] = np.rint(fix_all[name])
             elif args[0] == 'array':
@@ -145,23 +142,30 @@ class CausalNetwork:
     def drawNetwork(self):
         return self.root_node.drawNetwork()
 
-    def generate(self, config, runs):
+    def generate(self, init_data, config, runs):
         '''
-        Performs experiment many times (runs) according to config, returns data
+        Performs experiment many times (runs) according to config, returns data [i][group][var]
+        config: dict {'name': group_name, 'samples_str': '1-100', 'intervention': {...}}
         '''
-        self.data = dict()
-        for c in config:
-            self.data[c['name']] = [self.root_node.generate(c['N'], intervention=c['intervention']) for i in range(runs)]
+        self.data = []
+        for i in range(runs):
+            exp = Experiment(self, init_data)
+            is_random = ''.join([g['samples_str'] for g in config]) == ''
+            samples = randomAssign(exp.N, len(config)) if is_random else [text2Array(g['samples_str']) for g in config]
+            groups = [{'name': config[i]['name'], 'samples': samples[i]} for i in range(len(config))]
+            exp.setAssignment(groups)
+            exp.doExperiment(config)
+            self.data.append(exp.data)
 
     def statsContinuous(self, group, varx, vary):
         '''
         Calculates distribution of Pearson r and p-value between varx and vary (names of variables)
         '''
-        runs = len(self.data[group])
+        runs = len(self.data)
         results = np.zeros((runs, 2))
         for i in range(runs):
-            x = self.data[group][i][varx]
-            y = self.data[group][i][vary]
+            x = self.data[i][group][varx]
+            y = self.data[i][group][vary]
             results[i] = sp.pearsonr(x, y)
         fig, ax = plt.subplots(1, 2, figsize=(14, 5))
         fig.suptitle(vary + ' vs. ' + varx + ', ' + str(runs) + ' runs')
@@ -174,11 +178,11 @@ class CausalNetwork:
         '''
         Calculates distribution of Welch's t and p-value of var between the null hypothesis (group0) and intervention (group1)
         '''
-        runs = len(self.data[group0])
+        runs = len(self.data)
         results = np.zeros((runs, 2))
         for i in range(runs):
-            a = self.data[group0][i][var]
-            b = self.data[group1][i][var]
+            a = self.data[i][group0][var]
+            b = self.data[i][group1][var]
             results[i] = sp.ttest_ind(a, b, equal_var=True)
         fig, ax = plt.subplots(1, 2, figsize=(14, 5))
         fig.suptitle(var + ' between groups ' + group0 + ' and ' + group1 + ', ' + str(runs) + ' runs')
@@ -216,14 +220,12 @@ class Experiment:
             self.group_assignment.setAssignment(config, hide_random)
             self.submitAssignment()
 
-    def submitAssignment(self, sender=None):
+    def setAssignment(self, groups):
         '''
-        Collects the group assignments from UI
-        self.groups: list of dicts, each being {'name': group_name, samples: [array]}
-        self.group_ids: dict {'group_name': id} for easier reverse lookup
-        Checks for duplicate group names
+        Sets assignment into self.groups without UI
+        groups: list of dicts, each being {'name': group_name, samples: [array]}
         '''
-        self.groups = self.group_assignment.getAssignment()
+        self.groups = groups
         seen = set()
         self.group_ids = dict()
         for i in range(len(self.groups)):
@@ -235,6 +237,16 @@ class Experiment:
                 dialog('Duplicate group names', 'Some of the groups have been given the same name. Please choose a unique name for each group.', 'OK')
                 return
         self.group_names = list(self.group_ids.keys())
+
+    def submitAssignment(self, sender=None):
+        '''
+        Collects the group assignments from UI
+        self.groups: list of dicts, each being {'name': group_name, samples: [array]}
+        self.group_ids: dict {'group_name': id} for easier reverse lookup
+        Checks for duplicate group names
+        '''
+        self.setAssignment(self.group_assignment.getAssignment())
+        # Populate self.data for plotOrchard
         for g in self.groups:
             mask = [i in g['samples'] for i in range(self.N)]
             d = dict()
@@ -276,9 +288,8 @@ class Experiment:
             mask = [i in self.groups[j]['samples'] for i in range(self.N)]
             for node_name, arr in self.init_data.items():
                 g['intervention'][node_name] = ['array', arr[mask]]
-            if 'N' not in g.keys():
-                g['N'] = len(self.groups[self.group_ids[g['name']]]['samples'])
-            self.data[g['name']] = self.node.generate(g['N'], intervention=g['intervention'])
+            N_samples = len(self.groups[self.group_ids[g['name']]]['samples'])
+            self.data[g['name']] = self.node.generate(N_samples, intervention=g['intervention'])
         if msg:
             display(wd.Label(value='Data from experiment collected!'))
 
@@ -344,13 +355,10 @@ class groupAssignment:
         Randomly assigns samples to groups and changes settings in UI
         '''
         N = self.experiment.N
-        arr = np.arange(N)
-        np.random.shuffle(arr)
         N_group = len(self.group_assignments)
+        assigned_ids = randomAssign(N, N_group)
         for i in range(N_group):
-            start = i*N//N_group
-            end = min((i+1)*N//N_group, N)
-            self.group_assignments[i].samples.value = array2Text(arr[start:end])
+            self.group_assignments[i].samples.value = array2Text(assigned_ids[i])
 
     def greyAll(self):
         self.randomise_button.disabled = True
@@ -463,11 +471,10 @@ class singleNodeInterventionSetting:
         self.range_arg1 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
         self.range_arg2_text = wd.Label(value='to', layout=wd.Layout(visibility=self.range_visibility, width='15px'))
         self.range_arg2 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
-        self.range_rand = wd.Checkbox(description='Randomise order', disabled=True, indent=False, layout=wd.Layout(visibility=self.range_visibility))
         self.none.observe(self.none_observer, names=['value'])
         self.fixed.observe(self.fixed_observer, names=['value'])
         self.range.observe(self.range_observer, names=['value'])
-        self.box = wd.HBox([self.indent, self.text, self.none, self.fixed, self.fixed_arg, self.range, self.range_arg1_text, self.range_arg1, self.range_arg2_text, self.range_arg2, self.range_rand])
+        self.box = wd.HBox([self.indent, self.text, self.none, self.fixed, self.fixed_arg, self.range, self.range_arg1_text, self.range_arg1, self.range_arg2_text, self.range_arg2])
         display(self.box)
         if self.disable:
             self.greyAll()
@@ -479,7 +486,6 @@ class singleNodeInterventionSetting:
         self.range.disabled = True
         self.range_arg1.disabled = True
         self.range_arg2.disabled = True
-        self.range_rand.disabled = True
 
     def setIntervention(self, intervention):
         if intervention[0] == 'fixed':
@@ -489,11 +495,6 @@ class singleNodeInterventionSetting:
             self.range.index = 0
             self.range_arg1.value = intervention[1]
             self.range_arg2.value = intervention[2]
-        elif intervention[0] == 'range_rand':
-            self.range.index = 0
-            self.range_arg1.value = intervention[1]
-            self.range_arg2.value = intervention[2]
-            self.range_rand.value = True
 
     # Radio button .index = None if off, .index = 0 if on
     def none_observer(self, sender):
@@ -503,7 +504,6 @@ class singleNodeInterventionSetting:
             self.range.index = None
             self.range_arg1.disabled = True
             self.range_arg2.disabled = True
-            self.range_rand.disabled = True
         if self.disable:
             self.greyAll()
 
@@ -514,7 +514,6 @@ class singleNodeInterventionSetting:
             self.range.index = None
             self.range_arg1.disabled = True
             self.range_arg2.disabled = True
-            self.range_rand.disabled = True
         if self.disable:
             self.greyAll()
 
@@ -525,7 +524,6 @@ class singleNodeInterventionSetting:
             self.fixed_arg.disabled = True
             self.range_arg1.disabled = False
             self.range_arg2.disabled = False
-            self.range_rand.disabled = False
         if self.disable:
             self.greyAll()
 
@@ -538,10 +536,7 @@ class singleNodeInterventionSetting:
         elif self.fixed.index == 0:
             return ['fixed', self.fixed_arg.value]
         elif self.range.index == 0:
-            if self.range_rand.value:
-                return ['range_rand', self.range_arg1.value, self.range_arg2.value]
-            else:
-                return ['range', self.range_arg1.value, self.range_arg2.value]
+            return ['range', self.range_arg1.value, self.range_arg2.value]
 
 class assignmentPlot:
     def __init__(self, experiment):
@@ -830,6 +825,20 @@ def array2Text(ids):
             segments.append(s)
             start = ids[j+1]
     return ','.join(segments)
+
+def randomAssign(N, N_group):
+    '''
+    Randomly assigns N total items into N_group groups
+    Returns a list of lists of ids
+    '''
+    arr = np.arange(N)
+    np.random.shuffle(arr)
+    result = []
+    for i in range(N_group):
+        start = i*N//N_group
+        end = min((i+1)*N//N_group, N)
+        result.append(arr[start:end])
+    return result
 
 # Some functions for causal relations
 def gaussian(mean, std):
