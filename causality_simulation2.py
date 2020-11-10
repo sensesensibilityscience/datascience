@@ -283,13 +283,16 @@ class Experiment:
         if self.p:
             self.p.updateAssignments()
         else:
-            self.plotAssignment()
+            if self.node.name == 'Success Rate':
+                self.plotAssignment(plot='Basketball')
+            else:
+                self.plotAssignment()
 
-    def plotAssignment(self):
+    def plotAssignment(self, plot='Truffula'):
         '''
         Can be implemented differently in different scenarios
         '''
-        self.p = assignmentPlot(self)
+        self.p = assignmentPlot(self, plot)
 
     def setting(self, show='all', config=None, disable=[]):
         '''
@@ -575,16 +578,25 @@ class singleNodeInterventionSetting:
             return ['range', self.range_arg1.value, self.range_arg2.value]
 
 class assignmentPlot:
-    def __init__(self, experiment):
+    def __init__(self, experiment, plot='Truffula'):
         self.experiment = experiment
         self.group_names = experiment.group_names
         self.data = experiment.data
+        self.plot = plot
         self.buildTraces()
-        self.layout = go.Layout(title=dict(text='Tree Group Assignments'),barmode='overlay', height=650, width=800,
-                              xaxis=dict(title='Longitude', fixedrange=True), yaxis=dict(title='Latitude', fixedrange=True),
-                              hovermode='closest',
-                              margin=dict(b=80, r=200, autoexpand=False),
-                              showlegend=True)
+        if self.plot == 'Truffula':
+            self.layout = go.Layout(title=dict(text='Tree Group Assignments'),barmode='overlay', height=650, width=800,
+                                  xaxis=dict(title='Longitude', fixedrange=True), yaxis=dict(title='Latitude', fixedrange=True),
+                                  hovermode='closest',
+                                  margin=dict(b=80, r=200, autoexpand=False),
+                                  showlegend=True)
+        else:
+            self.layout = go.Layout(title=dict(text='Student Group Assignments'),barmode='overlay', height=650, width=800,
+                                  xaxis=dict(title='Student', fixedrange=True),
+                                  yaxis=dict(title='Height', fixedrange=True, range=(120, 200)),
+                                  hovermode='closest',
+                                  margin=dict(b=80, r=200, autoexpand=False),
+                                  showlegend=True)
         self.plot = go.FigureWidget(data=self.traces, layout=self.layout)
         display(self.plot)
         
@@ -592,8 +604,12 @@ class assignmentPlot:
         self.traces = []
         self.group_names = self.experiment.group_names
         self.data = self.experiment.data
-        for i, name in enumerate(self.group_names):
-            self.traces += [go.Scatter(x=self.data[name]['Longitude'], y=self.data[name]['Latitude'], mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>', marker_symbol=i, name=name)]
+        if self.plot == 'Truffula':
+            for i, name in enumerate(self.group_names):
+                self.traces += [go.Scatter(x=self.data[name]['Longitude'], y=self.data[name]['Latitude'], mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>', marker_symbol=i, name=name)]
+        else:
+            for i, name in enumerate(self.group_names):
+                self.traces += [go.Bar(x=self.data[name]['id'], y=self.data[name]['Height (cm)'], hovertemplate='Player: %{x} <br>Height: %{y} cm<br>', name=name)]
         
     def updateAssignments(self):
         self.buildTraces()
