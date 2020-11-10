@@ -174,22 +174,47 @@ class CausalNetwork:
         ax[1].hist(np.log(results[:,1]))
         ax[1].set_title('log(p)')
 
-    def statsAB(self, group0, group1, var):
+    # def statsAB(self, group0, group1, var):
+    #     '''
+    #     Calculates distribution of Welch's t and p-value of var between the null hypothesis (group0) and intervention (group1)
+    #     '''
+    #     runs = len(self.data)
+    #     results = np.zeros((runs, 2))
+    #     for i in range(runs):
+    #         a = self.data[i][group0][var]
+    #         b = self.data[i][group1][var]
+    #         results[i] = sp.ttest_ind(a, b, equal_var=False)
+    #     fig, ax = plt.subplots(1, 2, figsize=(14, 5))
+    #     fig.suptitle(var + ' between groups ' + group0 + ' and ' + group1 + ', ' + str(runs) + ' runs')
+    #     ax[0].hist(results[:,0])
+    #     ax[0].set_title("Welch's t")
+    #     ax[1].hist(np.log(results[:,1]))
+    #     ax[1].set_title('log(p)')
+
+    def statsAB(self, group0, group1, var, resamples=1000):
         '''
-        Calculates distribution of Welch's t and p-value of var between the null hypothesis (group0) and intervention (group1)
+        Permutation test
         '''
         runs = len(self.data)
         results = np.zeros((runs, 2))
         for i in range(runs):
             a = self.data[i][group0][var]
             b = self.data[i][group1][var]
-            results[i] = sp.ttest_ind(a, b, equal_var=True)
+            na = len(a)
+            nb = len(b)
+            sample_all = np.concatenate((a, b))
+            results[i,0] = abs(np.mean(a) - np.mean(b))
+            mean_diffs = np.zeros(resamples)
+            for j in range(resamples):
+                permuted = np.random.permutation(sample_all)
+                mean_diffs[j] = abs(np.mean(permuted[0:na]) - np.mean(permuted[na+1:]))
+            results[i,1] = np.sum(mean_diffs>=results[i,0]) / resamples
         fig, ax = plt.subplots(1, 2, figsize=(14, 5))
         fig.suptitle(var + ' between groups ' + group0 + ' and ' + group1 + ', ' + str(runs) + ' runs')
         ax[0].hist(results[:,0])
-        ax[0].set_title("Welch's t")
+        ax[0].set_title("Difference in mean")
         ax[1].hist(np.log(results[:,1]))
-        ax[1].set_title('log(p)')
+        ax[1].set_title('log(p)') # p = probability that a random assignment into A, B groups will give (abs) mean greater than the observed one
 
 class Experiment:
     def __init__(self, network, init_data):
