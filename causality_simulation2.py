@@ -232,6 +232,7 @@ class Experiment:
             raise ValueError("init_data doesn't match the causal network's init_attr.")
         self.N = l[0] # Sample size
         self.data = {} # {group_name: {node_name: [val, ...], ...}, ...}
+        self.done = False
         self.p = None
 
     def assignment(self, config=None, hide_random=False):
@@ -315,10 +316,17 @@ class Experiment:
                 g['intervention'][node_name] = ['array', arr[mask]]
             N_samples = len(self.groups[self.group_ids[g['name']]]['samples'])
             self.data[g['name']] = self.node.generate(N_samples, intervention=g['intervention'])
+        self.done = True
         if msg:
             display(wd.Label(value='Data from experiment collected!'))
 
     def plot(self, show='all'):
+        '''
+        Plots data after doExperiment has been called
+        '''
+        if not self.done:
+            dialog('Experiment not performed', 'You have not yet performed the experiment! Click on "Perform experiment" before running this box.', 'OK')
+            return
         p = interactivePlot(self, show)
         self.p = p
         p.display()
@@ -328,6 +336,9 @@ class Experiment:
         Takes in the name of the group in the experiment and the name of the 
         variable used to create the color gradient
         '''
+        if not self.done:
+            dialog('Experiment not performed', 'You have not yet performed the experiment! Click on "Perform experiment" before running this box.', 'OK')
+            return
         o = orchardPlot(self, gradient=gradient, show=show)
         self.o = o
         o.display()
