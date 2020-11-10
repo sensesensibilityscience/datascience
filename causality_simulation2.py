@@ -108,7 +108,7 @@ class CausalNode:
             if args[0] == 'fixed':
                 fix_all[name] = np.array([args[1] for i in range(n)])
             elif args[0] == 'range':
-                fix_all[name] = np.linspace(args[1], args[2], n)
+                fix_all[name] = np.random.permutation(np.linspace(args[1], args[2], n))
                 if self.vartype == 'discrete':
                     fix_all[name] = np.rint(fix_all[name])
             elif args[0] == 'array':
@@ -609,7 +609,7 @@ class assignmentPlot:
                 self.traces += [go.Scatter(x=self.data[name]['Longitude'], y=self.data[name]['Latitude'], mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>', marker_symbol=i, name=name)]
         else:
             for i, name in enumerate(self.group_names):
-                self.traces += [go.Bar(x=self.data[name]['id'], y=self.data[name]['Height (cm)'], hovertemplate='Player: %{x} <br>Height: %{y} cm<br>', name=name)]
+                self.traces += [go.Bar(x=self.data[name]['id'], y=self.data[name]['Height (cm)'], hovertemplate='Student: %{x} <br>Height: %{y} cm<br>', name=name)]
         
     def updateAssignments(self):
         self.buildTraces()
