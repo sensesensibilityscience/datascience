@@ -1,0 +1,15 @@
+{
+  "name": "Example",
+  "endpoint": "cal/ls22/sp21/example",
+  "src": [
+    "truffula2.ipynb"
+  ],
+  "tests": {
+      "tests/q*.py": "ok_test"
+  },
+  "protocols": [
+      "file_contents",
+      "grading",
+      "backup"
+  ]
+}
