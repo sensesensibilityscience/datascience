@@ -11,8 +11,31 @@ import plotly.graph_objects as go
 import warnings
 import re
 
-# TODO: Look at how Experiment parses init_data and migrate that to CausalNetwork
-# Remove 'randomise' checkbox
+'''
+Documentation for instructors:
+
+How to set up a causal network:
+1.
+
+How to initialise the causal network in a notebook:
+1. This .py script has to be imported
+from causality_simulation2 import *
+2. Define init_data = { 'node_name': [array_of_values], 'node_name2': [array_of_values], ... }, where the node_names have to be those causal nodes that have init=True, and the array of values have to be the fixed initial sample data, e.g. heights of students or coordinates of trees
+
+How to set up an experiment:
+1. experiment_name = Experiment(causal_network_name, init_data)
+Every new experiment needs a new instance of Experiment
+2. For group assignment
+experiment_name.assignment()
+Add argument config=[assignment_group1, assignment_group2, ...] for fixed (greyed out) assignment
+assignment_group = { 'name': 'Name of group', 'samples_str': '1-10,15,20-30' }
+If samples_str == '' for all groups, then samples are randomly assigned
+3. For experimental setup
+experiment_name.setting(show=['Name of node to show', ...])
+Add argument disable='all' to disallow editing of settings
+4. For plotting of collected data
+experiment_name.plot(show=['Name of node to show', ...])
+'''
 
 display(HTML('''<style>
     [title="Assigned samples:"] { min-width: 150px; }
