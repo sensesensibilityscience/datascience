@@ -33,6 +33,8 @@ If samples_str == '' for all groups, then samples are randomly assigned
 3. For experimental setup
 experiment_name.setting(show=['Name of node to show', ...])
 Add argument disable='all' to disallow editing of settings
+Add argument config=[intervention_group1, intervention_group2, ...], where intervention_groups have format { 'name': 'Name of group', 'intervention': { 'Name of node': ['fixed', 0], ...} }
+See code for detail
 4. For plotting of collected data
 experiment_name.plot(show=['Name of node to show', ...])
 '''
@@ -255,6 +257,7 @@ class Experiment:
             raise ValueError("init_data doesn't match the causal network's init_attr.")
         self.N = l[0] # Sample size
         self.data = {} # {group_name: {node_name: [val, ...], ...}, ...}
+        self.assigned = False
         self.done = False
         self.p = None
 
@@ -295,6 +298,7 @@ class Experiment:
         Checks for duplicate group names
         '''
         self.setAssignment(self.group_assignment.getAssignment())
+        self.assigned = True
         # Populate self.data for plotOrchard
         for g in self.groups:
             mask = [i in g['samples'] for i in range(self.N)]
@@ -334,6 +338,9 @@ class Experiment:
         Perform experiment under intervention
         intervention: list of dictionaries, each being {'name': group_name, 'intervention': {'node_name', [...]}}
         '''
+        if not self.assigned:
+            dialog('Groups not assigned', 'You have not yet assigned any groups! Click on "Visualise assignment" before running this box.', 'OK')
+            return
         self.data = dict()
         for g in intervention:
             j = self.group_ids[g['name']]
@@ -1019,7 +1026,7 @@ fertilizer_node = CausalNode('continuous', gaussian(10, 2), 'Fertilizer', min=0,
 supplement_soil_effects = {'Water': (1, 0), 'Kombucha': (0.6, -5), 'Milk': (1.2, 10), 'Tea': (0.7, 0)}
 # Fertilizer improves soil, kombucha destroys it
 soil_node = CausalNode('continuous', lambda x, y: categoricalLin(supplement_soil_effects)(linear(0, 10, 20, 100, fuzz=5)(x), y), 'Soil Quality', causes=[fertilizer_node, supplement_node], min=0, max=100)
-supplement_bees_effects = {'Water': (1, 0), 'Kombucha': (1.5, 0), 'Milk': (1, 0), 'Tea': (1.3, 0)}
+supplement_bees_effects = {'Water': (1, 0), 'Kombucha': (3, 0), 'Milk': (1, 0), 'Beer': (0.2, 0)}
 # Beehive in north, bees avoid wind, love kombucha
 bees_node = CausalNode('discrete', lambda x, y, z: categoricalLin(supplement_bees_effects)(dependentPoisson((0, 0, 250), (500, 30, 10), (0, 30, 40))(x, y), z), name='Number of Bees', causes=[latitude_node, wind_node, supplement_node], min=0, max=300)
 # Bees and good soil improve fruiting
