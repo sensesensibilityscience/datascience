@@ -738,28 +738,32 @@ class interactivePlot:
                     opacity = 0.75
                 traces += [go.Histogram(x=data[x], name=group, bingroup=1, opacity=opacity)]
                 y = 'Count'
+                barmode = 'overlay'
         elif traceType == 'scatter':
             for group in self.experiment.group_names:
                 data = self.experiment.data[group]
                 traces += [go.Scatter(x=data[x], y=data[y], mode='markers', opacity=0.75, name=group)]
                 annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
                 annotation_y += -0.05
+                barmode = 'overlay'
         elif traceType == 'bar':
             for group in self.experiment.group_names:
-                avg = self.experiment.data.groupby(x).agg('mean')
-                std = self.experiment.data.groupby(x).agg('std')[y]
-                traces += [go.Bar(x=list(avg.index), y=avg[y], name=group, error_y=dict(type='data', array=std[y]))]
+                avg = self.experiment.data[group].groupby(x).agg('mean')
+                std = self.experiment.data[group].groupby(x).agg('std')[y]
+                traces += [go.Bar(x=list(avg.index), y=avg[y], name=group, error_y=dict(type='data', array=std))]
                 annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
                 annotation_y += -0.05
+                barmode = 'group'
         elif traceType == 'barh':
             for group in self.experiment.group_names:
-                avg = self.experiment.data.groupby(y).agg('mean')
-                std = self.experiment.data.groupby(y).agg('std')[x]
-                traces += [go.Bar(x=avg[x], y=list(avg.index), name=group, error_y=dict(type='data', array=std[x]), orientation='h')]
+                avg = self.experiment.data[group].groupby(y).agg('mean')
+                std = self.experiment.data[group].groupby(y).agg('std')[x]
+                traces += [go.Bar(x=avg[x], y=list(avg.index), name=group, error_x=dict(type='data', array=std), orientation='h')]
                 annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
                 annotation_y += -0.05
+                barmode = 'group'
         go_layout = go.Layout(title=dict(text=x if traceType == 'histogram' else x + " vs. " + y ),
-                              barmode='overlay',
+                              barmode=barmode,
                               height=500+50,
                               width=800,
                               xaxis=dict(title=x), yaxis=dict(title=y),
