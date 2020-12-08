@@ -327,6 +327,9 @@ class Experiment:
         disabled: array of names
         show: array of names
         '''
+        if not self.assigned:
+            dialog('Groups not assigned', 'You have not yet assigned any groups! Click on "Visualise assignment" before running this box.', 'OK')
+            return
         disable = self.node.network if disable == 'all' else disable
         self.intervention_setting = interventionSetting(self, show=show, disable=disable)
         if config is not None:
@@ -338,9 +341,6 @@ class Experiment:
         Perform experiment under intervention
         intervention: list of dictionaries, each being {'name': group_name, 'intervention': {'node_name', [...]}}
         '''
-        if not self.assigned:
-            dialog('Groups not assigned', 'You have not yet assigned any groups! Click on "Visualise assignment" before running this box.', 'OK')
-            return
         self.data = dict()
         for g in intervention:
             j = self.group_ids[g['name']]
