@@ -688,15 +688,15 @@ class orchardPlot:
         variable used to create the color gradient"""
         traces = []
         for i, name in enumerate(self.experiment.group_names):
-            traces += [go.Scatter(x=self.data[name]['Latitude'], y=self.data[name]['Longitude'],
+            traces += [go.Scatter(x=self.data[name]['Longitude'], y=self.data[name]['Latitude'],
                                  marker=dict(color=self.data[name][gradient], coloraxis='coloraxis'),
                                  mode='markers',
                                  name=name,
                                  hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>'+ self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0), marker_symbol=i)]
         width = 700 if (len(self.experiment.group_names) == 1) else 725 + max([len(name) for name in self.experiment.group_names])*6.5
         go_layout = go.Layout(title=dict(text='Orchard Layout'),barmode='overlay', height=650, width=width,
-                              xaxis=dict(title='Latitude', fixedrange=True, range=[-50, 1050]), 
-                              yaxis=dict(title='Longitude', fixedrange=True, range=[-50, 1050]),
+                              xaxis=dict(title='Longitude', fixedrange=True, range=[-50, 1050]), 
+                              yaxis=dict(title='Latitude', fixedrange=True, range=[-50, 1050]),
                               hovermode='closest', legend=dict(yanchor="top", y=1, xanchor="left", x=1.25),
                               coloraxis={'colorscale':'Plasma', 'colorbar':{'title':gradient}})
         self.g = go.FigureWidget(data=traces, layout=go_layout)
