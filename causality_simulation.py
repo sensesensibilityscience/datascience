@@ -35,13 +35,13 @@ class CausalNetwork:
 
     # to be run at the beginning of each notebook
     def init(self, data):
-        for n in self.nodes:
+        for name, n in self.nodes.items():
             self.replacePlaceholders(n)
         l = [] # collect lengths
         for name in self.init_data.keys(): # populate init_data with data, raises error if any key in init_data is not present in data
             self.init_data[name] = data[name]
             l.append(len(data[name]))
-        self.N = len(l[0]) # sample size
+        self.N = l[0] # sample size
         if min(l) != max(l):
             raise ValueError('Every array in init_data must have the same length.')
         # TODO: validate causal network has no single-direction loops (other loops are allowed)
@@ -55,7 +55,7 @@ class CausalNetwork:
     def replacePlaceholders(self, node):
         if isinstance(node, PlaceholderNode):
             raise ValueError('A PlaceholderNode cannot be passed directly to replacePlaceholders. Use it on the parent instead.')
-        else:
+        elif node.causes != None:
             for i, n in enumerate(node.causes):
                 if isinstance(n, PlaceholderNode):
                     if n.name not in self.nodes:
@@ -990,4 +990,4 @@ truffula.addCause(effect='Number of fruits',
             )
         )
     )
-truffula.setRoot(node='Number of fruits')
+# truffula.setRoot(node='Number of fruits')
