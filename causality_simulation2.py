@@ -1030,7 +1030,7 @@ fertilizer_node = CausalNode('continuous', gaussian(10, 2), 'Fertilizer', min=0,
 supplement_soil_effects = {'Water': (1, 0), 'Kombucha': (0.6, -5), 'Milk': (1.2, 10), 'Tea': (0.7, 0)}
 # Fertilizer improves soil, kombucha destroys it
 soil_node = CausalNode('continuous', lambda x, y: categoricalLin(supplement_soil_effects)(linear(0, 10, 20, 100, fuzz=5)(x), y), 'Soil Quality', causes=[fertilizer_node, supplement_node], min=0, max=100)
-supplement_bees_effects = {'Water': (1, 0), 'Kombucha': (3, 0), 'Milk': (1, 0), 'Beer': (0.2, 0)}
+supplement_bees_effects = {'Water': (1, 0), 'Kombucha': (1.3, 0), 'Milk': (1, 0), 'Beer': (0.2, 0)}
 # Beehive in north, bees avoid wind, love kombucha
 bees_node = CausalNode('discrete', lambda x, y, z: categoricalLin(supplement_bees_effects)(dependentPoisson((0, 0, 250), (500, 30, 10), (0, 30, 40))(x, y), z), name='Number of Bees', causes=[latitude_node, wind_node, supplement_node], min=0, max=300)
 # Bees and good soil improve fruiting
