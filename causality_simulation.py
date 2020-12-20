@@ -11,6 +11,9 @@ import plotly.graph_objects as go
 import warnings
 import re
 
+# TODO: use data frame, maybe extra column for group assignment (dtype=string)
+# Experiment.data = {'Number of Bees': [...], 2109384712098347: [...]} (actually a dataframe)
+
 # display(HTML('''<style>
 #     [title="Assigned samples:"] { min-width: 150px; }
 # </style>'''))
@@ -492,6 +495,12 @@ class TruffulaExperiment(Experiment):
     def __init__(self, network):
         super().__init__(network)
         self.p = None # plot
+
+    def plotAssignment():
+        pass
+
+    def plot():
+        pass
 
     def plotOrchard(self, gradient=None, show='all'):
         '''
