@@ -11,8 +11,23 @@ import plotly.graph_objects as go
 import warnings
 import re
 
-# TODO: use data frame, maybe extra column for group assignment (dtype=string)
-# Experiment.data = {'Number of Bees': [...], 2109384712098347: [...]} (actually a dataframe)
+'''
+Data structure
+--------------
+CausalNetwork
+* complete network of all nodes
+* init_data
+* no per-experiment data
+
+CausalNode
+* causal relations from a single node
+
+Experiment
+* group assignment
+* intervention
+'''
+
+# TODO: assignment(config=) change format config to {'group_name': '1-500'}
 
 # display(HTML('''<style>
 #     [title="Assigned samples:"] { min-width: 150px; }
@@ -24,35 +39,49 @@ def dialog(title, body, button):
 class CausalNetwork:
     def __init__(self):
         self.nodes = {} # 'node_name': node
-        self.init_data = {}
+        self.init_data = pd.DataFrame()
 
-    def addNode(self, node, init=False):
+    def addNode(self, node):
         if node.name in self.nodes.keys(): # check for duplicate nodes
             raise ValueError('A node with the same name %s already exists!' % node['name'])
         self.nodes[node.name] = node
-        if init:
-            self.init_data[node.name] = [] # to be populated by init()
 
     def addCause(self, effect, cause):
         self.nodes[effect].setCause(func=identity, causes=[cause])
 
     # to be run at the beginning of each notebook
     def init(self, data):
+        '''
+        data: {'some_node': [val, val, ...], ...} all arrays must have same size
+        '''
+        l = []
         for name, n in self.nodes.items():
-            self.replacePlaceholders(n)
-        l = [] # collect lengths
-        for name in self.init_data.keys(): # populate init_data with data, raises error if any key in init_data is not present in data
-            self.init_data[name] = data[name]
-            l.append(len(data[name]))
-        self.N = l[0] # sample size
-        if min(l) != max(l):
-            raise ValueError('Every array in init_data must have the same length.')
+            if n.causes == None: # is an init node, populate init_data column, throws error if arrays don't have same size
+                n.traceRoots()
+                self.init_data[name] = data[name]
+            self.replacePlaceholders(n)                
         # TODO: validate causal network has no single-direction loops (other loops are allowed)
-        # validate init_data matches with the nodes that have .causes == None
 
-    # TODO: is this even necessary??
-    def setRoot(self, node):
-        self.root_node = node
+    def generateSingle(self, row):
+        '''
+        Returns one row of pandas table
+        row: single row of DataFrame
+        '''
+        print(row)
+        total_nodes = len(self.nodes)
+        new_row = {name: row[name] for name in self.nodes.keys() if name in row.keys() and not pd.isnull(row[name])} # populate new_row with values of init nodes or fixed nodes
+        while len(new_row) < total_nodes:
+            for name, n in self.nodes.items():
+                if name not in new_row.keys():
+                    ready = True # checks if all its causes have been evaluated or fixed
+                    for c in n.root_causes:
+                        if c.name not in new_row.keys():
+                            ready = False
+                            break
+                    if ready: # evaluate this node using values from its .causes
+                        causes_val = {c.name: new_row[c.name] for c in n.root_causes}
+                        new_row[name] = n.evaluate(causes_val)
+        return new_row
 
     # replaces all PlaceholderNodes of a node's causes by the actual node searched by name
     def replacePlaceholders(self, node):
@@ -70,96 +99,47 @@ class CausalNetwork:
 class CausalNode:
     def __init__(self, name=None):
         self.name = name if name else id(self) # given name or use unique id
-        self.causes = None # array of node type arguments to f. None means it's an init node
+        self.causes = None # array of node type arguments to f. None means this is an init node
         self.func = None # only takes positional arguments
+        self.root_causes = set() # set of names of PlaceholderNodes that this node directly depends on
 
     def setCause(self, func, causes):
         self.causes = causes
         self.func = func
 
-    def traceNetwork(self):
+    def traceRoots(self):
         '''
-        Generates set of all nodes that current node depends on
+        Stores a list of names of (string-named) nodes that this node depends on
         '''
-        nodes = {self}
+        if self.causes == None:
+            return
         for c in self.causes:
-            nodes = nodes.union(c.traceNetwork())
-        return nodes
+            if isinstance(c, PlaceholderNode):
+                self.root_causes.add(c.name)
+            else:
+                self.traceRoots() # recurse down the network
 
-    def nodeDict(self):
+    def evaluate(self, params):
         '''
-        Generates a dictionary of name, node pairs for easier lookup of nodes by name
+        Evaluates the value of this node given the values of nodes in root_causes
+        kwargs.keys() must match root_causes TODO: validate this somewhere?
         '''
-        nodes = self.traceNetwork()
-        network = {}
-        for n in nodes:
-            network[n.name] = n
-        return network
-
-    def generateSingle(self, fix={}):
-        '''
-        Generates a single multidimensional data point. Returns dict of name, value pairs
-        fix: {node_name: val, ...}
-        returns data: {node_name: [val, val, ...], ...}
-        '''
-        data = {}
-        node_dict = self.nodeDict()
-        while len(data) != len(node_dict):
-            for m, n in node_dict.items():
-                if m not in data.keys():
-                    if n.causes == None: # must be an init node
-                        data[m] = fix[m]
-                    else: # apply .func onto the values from .causes
-                        ready = True # checks if all its causes have been evaluated
-                        for c in n.causes:
-                            if c.name not in data.keys():
-                                ready = False
-                                break
-                        if ready: # evaluate this node using values from its .causes
-                            parents_val = [data[c.name] for c in n.causes]
-                            if m not in fix.keys():
-                                data[m] = n.func(*parents_val)
-                            else: # this case is way down here because we want to evaluate all the otherwise relevant nodes even if they're not used due to an intervention
-                                data[m] = fix[m]
-        return data
-
-    # TODO move/add generate to CausalNetwork for all nodes, in order to be root_node agnostic
-    def generate(self, n, intervention={}):
-        '''
-        Generates n data points. Returns dict of name, np.array(values) pairs
-        intervention: {node_name: [type, other_args]}
-        intervention format:
-        ['fixed', val] (val could be number or name of category)
-        ['range', start, end]
-        ['array', [...]] array size must be n
-        '''
-        fix_all = {} # {name: [val, ...], ...}
-        for name, args in intervention.items():
-            if args[0] == 'fixed':
-                fix_all[name] = np.array([args[1] for i in range(n)])
-            elif args[0] == 'range':
-                fix_all[name] = np.random.permutation(np.linspace(args[1], args[2], n))
-                if isinstance(self, DiscreteNode):
-                    fix_all[name] = np.rint(fix_all[name])
-            elif args[0] == 'array':
-                fix_all[name] = np.array(args[1])
-        fixes = [None] * n # Convert to [{name: val, ...}, ...]
-        for i in range(n):
-            fixes[i] = {}
-            for name, arr in fix_all.items():
-                fixes[i][name] = arr[i]
-        data_dicts = [self.generateSingle(fix=fix) for fix in fixes]
-        data = {}
-        for name in self.network:
-            data[name] = np.array([d[name] for d in data_dicts])
-        return pd.DataFrame(data)
+        if self.causes == None:
+            print(self.name)
+            raise ValueError('This is an init node. evaluate() should not have been called.')
+        cause_vals = [None] * len(self.causes)
+        for i, c in enumerate(self.causes):
+            if isinstance(c.name, str): # if predefined node (i.e. not intermediate node)
+                cause_vals[i] = params[c.name]
+            else: # recurse down the tree
+                cause_vals[i] = c.evaluate(params)
+        return self.func(cause_vals)
 
 class Experiment:
     def __init__(self, network):
         self.network = network
-        self.init_data = self.network.init_data
-        self.N = self.network.N
-        self.data = {} # {group_name: {node_name: [val, ...], ...}, ...}
+        self.N = len(self.network.init_data)
+        self.data = self.network.init_data.copy()
         self.assigned = False # has the assignment step been run
         self.done = False # has the experiment been done
 
@@ -176,39 +156,28 @@ class Experiment:
 
     def setAssignment(self, groups):
         '''
-        Sets assignment into self.groups without UI
+        Populates the 'Group' column of self.data without UI
         groups: list of dicts, each being {'name': group_name, 'samples': [array]}
         '''
-        self.groups = groups
-        seen = set()
-        self.group_ids = dict()
-        for i in range(len(self.groups)):
-            name = self.groups[i]['name']
-            if name not in seen:
-                seen.add(name)
-                self.group_ids[name] = i
-            else:
+        # check for duplicates and populate self.data
+        self.data['Group'] = None # eventually the column should all be group names
+        seen = []
+        for g in groups:
+            if g['name'] in seen:
                 dialog('Duplicate group names', 'Some of the groups have been given the same name. Please choose a unique name for each group.', 'OK')
                 return
-        self.group_names = list(self.group_ids.keys())
+            else:
+                seen.append(g['name'])
+            for i in g['samples']:
+                self.data.at[i,'Group'] = g['name']
 
     def submitAssignment(self, sender=None):
         '''
         Collects the group assignments from UI
-        self.groups: list of dicts, each being {'name': group_name, samples: [array]}
-        self.group_ids: dict {'group_name': id} for easier reverse lookup
         Checks for duplicate group names
         '''
         self.setAssignment(self.group_assignment.getAssignment())
         self.assigned = True
-        # Populate self.data for plotOrchard
-        for g in self.groups:
-            mask = [i in g['samples'] for i in range(self.N)]
-            d = dict()
-            for node_name, arr in self.init_data.items():
-                d[node_name] = arr[mask] 
-            d['id'] = np.array(g['samples'])+1
-            self.data[g['name']] = pd.DataFrame(d)
         self.plotAssignment()
 
     def plotAssignment(self):
@@ -226,25 +195,48 @@ class Experiment:
         if not self.assigned:
             dialog('Groups not assigned', 'You have not yet assigned any groups! Click on "Visualise assignment" before running this box.', 'OK')
             return
-        disable = self.node.network if disable == 'all' else disable
+        disable = self.network.nodes.keys() if disable == 'all' else disable
         self.intervention_setting = InterventionSetting(self, show=show, disable=disable)
         if config is not None:
             self.intervention_setting.setIntervention(config)
             self.doExperiment(config)
 
+    def generate(self, intervention={}):
+        '''
+        Generates experimental data for all groups according to intervention. Stores results in .data
+        intervention: {'some_group': {'some_node': [args], ...}, ...}
+        intervention format:
+        ['fixed', val] (val could be number or name of category)
+        ['range', start, end]
+        ['array', [...]] array size must be n
+        '''
+        # reset the dataframe to just group assignments
+        for key in self.data:
+            if key != 'Group':
+                self.data.drop(key, axis=1)
+        for group, inter in intervention.items():
+            n = len(self.data.loc[self.data['Group'] == group].index) # number of samples in group
+            for name, args in inter.items():
+                if args[0] == 'fixed':
+                    to_fix = args[1]
+                elif args[0] == 'range':
+                    to_fix = np.random.permutation(np.linspace(args[1], args[2], n))
+                    if isinstance(self, DiscreteNode):
+                        to_fix = np.rint(to_fix)
+                elif args[0] == 'array':
+                    to_fix = args[1]
+                # populate only those entries that are intervened on
+                self.data.loc[self.data['Group'] == group, name] = to_fix
+        # generate the rest of each row using the existing values
+        for i in range(len(self.data)):
+            self.data.loc[i] = self.network.generateSingle(self.data.loc[i]) # use loc or iloc?
+
     def doExperiment(self, intervention, msg=False):
         '''
         Perform experiment under intervention
-        intervention: list of dictionaries, each being {'name': group_name, 'intervention': {'node_name', [...]}}
+        intervention: {'group_name': {'node_name': [...]}}
         '''
-        self.data = dict()
-        for g in intervention:
-            j = self.group_ids[g['name']]
-            mask = [i in self.groups[j]['samples'] for i in range(self.N)]
-            for node_name, arr in self.init_data.items():
-                g['intervention'][node_name] = ['array', arr[mask]]
-            N_samples = len(self.groups[self.group_ids[g['name']]]['samples'])
-            self.data[g['name']] = self.node.generate(N_samples, intervention=g['intervention'])
+        self.generate(intervention)
         self.done = True
         if msg:
             display(wd.Label(value='Data from experiment collected!'))
@@ -355,7 +347,7 @@ class SingleGroupAssignment:
 class InterventionSetting:
     def __init__(self, experiment, show='all', disable=[]):
         self.experiment = experiment
-        self.group_settings = [SingleGroupInterventionSetting(self.experiment, g, show=show, disable=disable) for g in self.experiment.groups]
+        self.group_settings = [SingleGroupInterventionSetting(self.experiment, g, len(self.experiment.data.loc[self.experiment.data['Group'] == g].index), show=show, disable=disable) for g in self.experiment.data['Group'].unique()]
         submit = wd.Button(description='Perform experiment')
         display(submit)
         submit.on_click(self.submit)
@@ -364,7 +356,7 @@ class InterventionSetting:
         self.experiment.doExperiment(self.getIntervention(), msg=True)
 
     def getIntervention(self):
-        return [{'name': s.name, 'N': s.N, 'intervention': s.getIntervention()} for s in self.group_settings]
+        return {s.name: s.getIntervention() for s in self.group_settings}
 
     def setIntervention(self, config):
         for c in config:
@@ -372,19 +364,19 @@ class InterventionSetting:
             self.group_settings[j].setIntervention(c)
 
 class SingleGroupInterventionSetting:
-    def __init__(self, experiment, config, show='all', disable=[]):
+    def __init__(self, experiment, name, N, show='all', disable=[]):
         '''
         UI settings for a single group
         config: {'name': group_name, 'samples': [sample_ids]}
         '''
         self.experiment = experiment
-        self.name = config['name']
-        self.N = len(config['samples'])
-        group_text = wd.Label(value='Group name: %s, %d samples' % (self.name, self.N))
+        self.name = name
+        self.N = N
+        group_text = wd.Label(value='Group name: %s, %d samples' % (name, N))
         display(group_text)
         to_list = list(self.experiment.node.network.keys()) if show == 'all' else show
         to_list.sort()
-        self.node_settings = [SingleNodeInterventionSetting(self.experiment.node.network[name], disable=name in disable) for name in to_list]
+        self.node_settings = [SingleNodeInterventionSetting(self.experiment.network.nodes[n], disable=n in disable) for n in to_list]
 
     def getIntervention(self):
         intervention = dict()
@@ -406,7 +398,7 @@ class SingleNodeInterventionSetting:
         '''
         self.name = node.name
         self.disable = disable
-        self.is_categorical = node.vartype == 'categorical'
+        self.is_categorical = isinstance(node, CategoricalNode)
         self.indent = wd.Label(value='', layout=wd.Layout(width='20px'))
         self.text = wd.Label(value=self.name, layout=wd.Layout(width='180px'))
         self.none = wd.RadioButtons(options=['No intervention'], layout=wd.Layout(width='150px'))
@@ -941,8 +933,8 @@ def solveLinear(points):
 truffula new format
 '''
 truffula = CausalNetwork()
-truffula.addNode(ContinuousNode(name='Latitude', min=0, max=1000), init=True)
-truffula.addNode(ContinuousNode(name='Longitude', min=0, max=1000), init=True)
+truffula.addNode(ContinuousNode(name='Latitude', min=0, max=1000))
+truffula.addNode(ContinuousNode(name='Longitude', min=0, max=1000))
 truffula.addNode(ContinuousNode(name='Wind speed', min=0, max=40))
 truffula.addCause(effect='Wind speed',
     cause=bound(
@@ -959,7 +951,13 @@ truffula.addCause(effect='Wind speed',
         floor=0)
     )
 truffula.addNode(CategoricalNode(name='Supplement', categories=['Water', 'Kombucha', 'Milk', 'Tea']))
+truffula.addCause(effect='Supplement',
+    cause=identity('Water')
+    )
 truffula.addNode(ContinuousNode(name='Fertilizer', min=0, max=20))
+truffula.addCause(effect='Fertilizer',
+    cause=normal(mean=10, stdev=2)
+    )
 truffula.addNode(ContinuousNode(name='Soil quality', min=0, max=100))
 truffula.addCause(effect='Soil quality',
     cause=categoricalLinear(
@@ -999,4 +997,3 @@ truffula.addCause(effect='Number of fruits',
             )
         )
     )
-# truffula.setRoot(node='Number of fruits')
