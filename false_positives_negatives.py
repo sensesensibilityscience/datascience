@@ -2,6 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ipywidgets as widgets
 
+# TODO: close graphs before drawing new ones, or just use:
+# plt.rcParams.update({'figure.max_open_warning': 0})
+# TODO: Make false pos/neg stats publically accessible
+
 class Test:
     def __init__(self, config, data=None):
         '''
