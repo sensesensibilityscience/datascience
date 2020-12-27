@@ -27,11 +27,13 @@ Experiment
 * intervention
 '''
 
-# TODO: assignment(config=) change format config to {'group_name': '1-500'}
+# TODO: assignment(config=) change format config to {'group_name': '1-500'} (but maybe a list of dicts is better for preserving ordering)
+# TODO: assignment string must be within the total number of samples
+# TODO: assignment mustn't have overlapping groups
 
-# display(HTML('''<style>
-#     [title="Assigned samples:"] { min-width: 150px; }
-# </style>'''))
+display(HTML('''<style>
+    [title="Assigned samples:"] { min-width: 150px; }
+</style>'''))
 
 def dialog(title, body, button):
     display(Javascript("require(['base/js/dialog'], function(dialog) {dialog.modal({title: '%s', body: '%s', buttons: {'%s': {}}})});" % (title, body, button)))
@@ -47,27 +49,27 @@ class CausalNetwork:
         self.nodes[node.name] = node
 
     def addCause(self, effect, cause):
-        self.nodes[effect].setCause(func=identity, causes=[cause])
+        self.nodes[effect].setCause(func=lambda x: x, causes=[cause]) # func has to be an unlifted function, so don't use identity here!
 
     # to be run at the beginning of each notebook
     def init(self, data):
         '''
+        initialises the network and its constituent nodes
         data: {'some_node': [val, val, ...], ...} all arrays must have same size
         '''
         l = []
         for name, n in self.nodes.items():
-            if n.causes == None: # is an init node, populate init_data column, throws error if arrays don't have same size
-                n.traceRoots()
+            if n.causes is None: # is an init node, populate init_data column, throws error if arrays don't have same size
                 self.init_data[name] = data[name]
+            n.root_causes = n.traceRoots()
             self.replacePlaceholders(n)                
         # TODO: validate causal network has no single-direction loops (other loops are allowed)
 
     def generateSingle(self, row):
         '''
         Returns one row of pandas table
-        row: single row of DataFrame
+        row: single row of DataFrame or dict {'some_node': val, ...}
         '''
-        print(row)
         total_nodes = len(self.nodes)
         new_row = {name: row[name] for name in self.nodes.keys() if name in row.keys() and not pd.isnull(row[name])} # populate new_row with values of init nodes or fixed nodes
         while len(new_row) < total_nodes:
@@ -75,19 +77,19 @@ class CausalNetwork:
                 if name not in new_row.keys():
                     ready = True # checks if all its causes have been evaluated or fixed
                     for c in n.root_causes:
-                        if c.name not in new_row.keys():
+                        if c not in new_row.keys():
                             ready = False
                             break
                     if ready: # evaluate this node using values from its .causes
-                        causes_val = {c.name: new_row[c.name] for c in n.root_causes}
-                        new_row[name] = n.evaluate(causes_val)
+                        cause_vals = {c: new_row[c] for c in n.root_causes}
+                        new_row[name] = n.evaluate(cause_vals)
         return new_row
 
     # replaces all PlaceholderNodes of a node's causes by the actual node searched by name
     def replacePlaceholders(self, node):
         if isinstance(node, PlaceholderNode):
             raise ValueError('A PlaceholderNode cannot be passed directly to replacePlaceholders. Use it on the parent instead.')
-        elif node.causes != None:
+        elif node.causes is not None:
             for i, n in enumerate(node.causes):
                 if isinstance(n, PlaceholderNode):
                     if n.name not in self.nodes:
@@ -95,6 +97,17 @@ class CausalNetwork:
                     node.causes[i] = self.nodes[n.name] # replace
                 else:
                     self.replacePlaceholders(n) # recurse down the tree
+
+    def draw(self, root, intermediate=False):
+        g = Digraph(name=root)
+        def draw_edges(node, g):
+            if node.causes:
+                causes = node.causes if intermediate else [self.nodes[name] for name in node.root_causes]
+                for c in causes:
+                    g.edge(str(c.name), str(node.name))
+                    draw_edges(c, g)
+        draw_edges(self.nodes[root], g)
+        return g
 
 class CausalNode:
     def __init__(self, name=None):
@@ -111,21 +124,22 @@ class CausalNode:
         '''
         Stores a list of names of (string-named) nodes that this node depends on
         '''
-        if self.causes == None:
-            return
+        root_causes = set()
+        if self.causes is None:
+            return root_causes
         for c in self.causes:
             if isinstance(c, PlaceholderNode):
-                self.root_causes.add(c.name)
+                root_causes.add(c.name)
             else:
-                self.traceRoots() # recurse down the network
+                root_causes = root_causes.union(c.traceRoots()) # recurse down the network
+        return root_causes
 
     def evaluate(self, params):
         '''
         Evaluates the value of this node given the values of nodes in root_causes
         kwargs.keys() must match root_causes TODO: validate this somewhere?
         '''
-        if self.causes == None:
-            print(self.name)
+        if self.causes is None:
             raise ValueError('This is an init node. evaluate() should not have been called.')
         cause_vals = [None] * len(self.causes)
         for i, c in enumerate(self.causes):
@@ -133,7 +147,28 @@ class CausalNode:
                 cause_vals[i] = params[c.name]
             else: # recurse down the tree
                 cause_vals[i] = c.evaluate(params)
-        return self.func(cause_vals)
+        return self.func(*cause_vals)
+
+# placeholder node that only has a name, used to look up the actual node in the CausalNetwork
+class PlaceholderNode(CausalNode):
+    pass
+
+class ContinuousNode(CausalNode):
+    def __init__(self, name=None, min=0, max=100):
+        super().__init__(name=name)
+        self.min = min
+        self.max = max
+
+class DiscreteNode(CausalNode):
+    def __init__(self, name=None, min=0, max=100):
+        super().__init__(name=name)
+        self.min = min
+        self.max = max
+
+class CategoricalNode(CausalNode):
+    def __init__(self, name=None, categories=[]):
+        super().__init__(name=name)
+        self.categories = categories
 
 class Experiment:
     def __init__(self, network):
@@ -168,8 +203,17 @@ class Experiment:
                 return
             else:
                 seen.append(g['name'])
+            if g['samples'] is None:
+                dialog('Assignment invalid', 'Invalid assignment of samples to groups! Please revise your assignments.', 'OK')
+                return
             for i in g['samples']:
                 self.data.at[i,'Group'] = g['name']
+        self.groups = [g['name'] for g in groups] # list of group names
+        self.group_ids = {name: i for i, name in enumerate(self.groups)} # for easier lookup of group ids
+        if None in self.data['Group'].unique():
+            dialog('Not all samples assigned', 'Not all samples have been assigned to a group! Please revise your assignments.', 'OK')
+            return
+        self.assigned = True
 
     def submitAssignment(self, sender=None):
         '''
@@ -177,7 +221,6 @@ class Experiment:
         Checks for duplicate group names
         '''
         self.setAssignment(self.group_assignment.getAssignment())
-        self.assigned = True
         self.plotAssignment()
 
     def plotAssignment(self):
@@ -201,10 +244,10 @@ class Experiment:
             self.intervention_setting.setIntervention(config)
             self.doExperiment(config)
 
-    def generate(self, intervention={}):
+    def generate(self, intervention=[]):
         '''
         Generates experimental data for all groups according to intervention. Stores results in .data
-        intervention: {'some_group': {'some_node': [args], ...}, ...}
+        intervention: list of dicts, each being {'name': 'some_group', 'intervention': {'some_node': [args], ...}, ...}
         intervention format:
         ['fixed', val] (val could be number or name of category)
         ['range', start, end]
@@ -214,7 +257,9 @@ class Experiment:
         for key in self.data:
             if key != 'Group':
                 self.data.drop(key, axis=1)
-        for group, inter in intervention.items():
+        for g in intervention:
+            group = g['name']
+            inter = g['intervention']
             n = len(self.data.loc[self.data['Group'] == group].index) # number of samples in group
             for name, args in inter.items():
                 if args[0] == 'fixed':
@@ -229,7 +274,9 @@ class Experiment:
                 self.data.loc[self.data['Group'] == group, name] = to_fix
         # generate the rest of each row using the existing values
         for i in range(len(self.data)):
-            self.data.loc[i] = self.network.generateSingle(self.data.loc[i]) # use loc or iloc?
+            new_vals = self.network.generateSingle(self.data.loc[i])
+            for name, val in enumerate(new_vals):
+                self.data.at[i, name] = val # use loc or iloc?
 
     def doExperiment(self, intervention, msg=False):
         '''
@@ -248,9 +295,35 @@ class Experiment:
         if not self.done:
             dialog('Experiment not performed', 'You have not yet performed the experiment! Click on "Perform experiment" before running this box.', 'OK')
             return
-        p = interactivePlot(self, show)
+        p = InteractivePlot(self, show)
         self.p = p
         p.display()
+
+class TruffulaExperiment(Experiment):
+    def __init__(self):
+        super().__init__(truffula)
+
+    def plotAssignment(self):
+        self.a = AssignmentPlot(self, 'Truffula')
+
+    def plotOrchard(self, gradient=None, show='all'):
+        '''
+        Takes in the name of the group in the experiment and the name of the 
+        variable used to create the color gradient
+        '''
+        if not self.done:
+            dialog('Experiment not performed', 'You have not yet performed the experiment! Click on "Perform experiment" before running this box.', 'OK')
+            return
+        o = OrchardPlot(self, gradient=gradient, show=show)
+        self.o = o
+        o.display()
+
+class BasketballExperiment(Experiment):
+    def __init__(self):
+        super().__init__(basketball)
+
+    def plotAssignment(self):
+        pass
 
 class GroupAssignment:
     def __init__(self, experiment):
@@ -347,7 +420,7 @@ class SingleGroupAssignment:
 class InterventionSetting:
     def __init__(self, experiment, show='all', disable=[]):
         self.experiment = experiment
-        self.group_settings = [SingleGroupInterventionSetting(self.experiment, g, len(self.experiment.data.loc[self.experiment.data['Group'] == g].index), show=show, disable=disable) for g in self.experiment.data['Group'].unique()]
+        self.group_settings = [SingleGroupInterventionSetting(self.experiment, g, len(self.experiment.data.loc[self.experiment.data['Group'] == g].index), show=show, disable=disable) for g in self.experiment.groups]
         submit = wd.Button(description='Perform experiment')
         display(submit)
         submit.on_click(self.submit)
@@ -356,7 +429,7 @@ class InterventionSetting:
         self.experiment.doExperiment(self.getIntervention(), msg=True)
 
     def getIntervention(self):
-        return {s.name: s.getIntervention() for s in self.group_settings}
+        return [{'name': s.name, 'intervention': s.getIntervention()} for s in self.group_settings]
 
     def setIntervention(self, config):
         for c in config:
@@ -374,7 +447,8 @@ class SingleGroupInterventionSetting:
         self.N = N
         group_text = wd.Label(value='Group name: %s, %d samples' % (name, N))
         display(group_text)
-        to_list = list(self.experiment.node.network.keys()) if show == 'all' else show
+        to_list = list(self.experiment.network.nodes.keys()) if show == 'all' else show
+        to_list = [a for a in to_list if a not in self.experiment.network.init_data.keys()]
         to_list.sort()
         self.node_settings = [SingleNodeInterventionSetting(self.experiment.network.nodes[n], disable=n in disable) for n in to_list]
 
@@ -413,9 +487,11 @@ class SingleNodeInterventionSetting:
         self.range = wd.RadioButtons(options=['Range'], layout=wd.Layout(width='70px', visibility=self.range_visibility))
         self.range.index = None
         self.range_arg1_text = wd.Label(value='from', layout=wd.Layout(visibility=self.range_visibility, width='30px'))
-        self.range_arg1 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
+        a = 0 if self.is_categorical else node.min
+        b = 0 if self.is_categorical else node.max
+        self.range_arg1 = wd.BoundedFloatText(min=a, max=b, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
         self.range_arg2_text = wd.Label(value='to', layout=wd.Layout(visibility=self.range_visibility, width='15px'))
-        self.range_arg2 = wd.BoundedFloatText(min=node.min, max=node.max, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
+        self.range_arg2 = wd.BoundedFloatText(min=a, max=b, disabled=True, layout=wd.Layout(width='70px', visibility=self.range_visibility))
         self.none.observe(self.none_observer, names=['value'])
         self.fixed.observe(self.fixed_observer, names=['value'])
         self.range.observe(self.range_observer, names=['value'])
@@ -483,38 +559,10 @@ class SingleNodeInterventionSetting:
         elif self.range.index == 0:
             return ['range', self.range_arg1.value, self.range_arg2.value]
 
-class TruffulaExperiment(Experiment):
-    def __init__(self, network):
-        super().__init__(network)
-        self.p = None # plot
-
-    def plotAssignment():
-        pass
-
-    def plot():
-        pass
-
-    def plotOrchard(self, gradient=None, show='all'):
-        '''
-        Takes in the name of the group in the experiment and the name of the 
-        variable used to create the color gradient
-        '''
-        if not self.done:
-            dialog('Experiment not performed', 'You have not yet performed the experiment! Click on "Perform experiment" before running this box.', 'OK')
-            return
-        o = orchardPlot(self, gradient=gradient, show=show)
-        self.o = o
-        o.display()
-
-class BasketballExperiment(Experiment):
-    def __init__(self, network):
-        super().__init__(network)
-        self.p = None # plot
-
-class assignmentPlot:
+class AssignmentPlot:
     def __init__(self, experiment, plot='Truffula'):
         self.experiment = experiment
-        self.group_names = experiment.group_names
+        self.group_names = experiment.data['Group'].unique()
         self.data = experiment.data
         self.plot = plot
         self.buildTraces()
@@ -553,7 +601,7 @@ class assignmentPlot:
                 self.plot.add_traces(trace)
             self.plot.layout = self.layout
 
-class orchardPlot:
+class OrchardPlot:
     def __init__(self, experiment, gradient=None, show='all'):
         self.data = experiment.data
         self.experiment = experiment
@@ -592,15 +640,15 @@ class orchardPlot:
         variable used to create the color gradient"""
         traces = []
         for i, name in enumerate(self.experiment.group_names):
-            traces += [go.Scatter(x=self.data[name]['Latitude'], y=self.data[name]['Longitude'],
+            traces += [go.Scatter(x=self.data[name]['Longitude'], y=self.data[name]['Latitude'],
                                  marker=dict(color=self.data[name][gradient], coloraxis='coloraxis'),
                                  mode='markers',
                                  name=name,
                                  hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>'+ self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0), marker_symbol=i)]
         width = 700 if (len(self.experiment.group_names) == 1) else 725 + max([len(name) for name in self.experiment.group_names])*6.5
         go_layout = go.Layout(title=dict(text='Orchard Layout'),barmode='overlay', height=650, width=width,
-                              xaxis=dict(title='Latitude', fixedrange=True, range=[-50, 1050]), 
-                              yaxis=dict(title='Longitude', fixedrange=True, range=[-50, 1050]),
+                              xaxis=dict(title='Longitude', fixedrange=True, range=[-50, 1050]), 
+                              yaxis=dict(title='Latitude', fixedrange=True, range=[-50, 1050]),
                               hovermode='closest', legend=dict(yanchor="top", y=1, xanchor="left", x=1.25),
                               coloraxis={'colorscale':'Plasma', 'colorbar':{'title':gradient}})
         self.g = go.FigureWidget(data=traces, layout=go_layout)
@@ -609,10 +657,10 @@ class orchardPlot:
         container = wd.HBox([self.textbox])
         display(wd.VBox([container, self.g]))
 
-class interactivePlot:
+class InteractivePlot:
     def __init__(self, experiment, show='all'):
         self.experiment = experiment
-        self.x_options = list(experiment.node.network.keys())
+        self.x_options = list(experiment.network.nodes.keys())
         self.y_options = self.x_options.copy()
         if show != 'all':
             for i in self.x_options.copy():
@@ -830,27 +878,6 @@ def randomAssign(N, N_group):
         result.append(arr[start:end])
     return result
 
-# placeholder node that only has a name, used to look up the actual node in the CausalNetwork
-class PlaceholderNode(CausalNode):
-    pass
-
-class ContinuousNode(CausalNode):
-    def __init__(self, name=None, min=0, max=100):
-        super().__init__(name=name)
-        self.min = min
-        self.max = max
-
-class DiscreteNode(CausalNode):
-    def __init__(self, name=None, min=0, max=100):
-        super().__init__(name=name)
-        self.min = min
-        self.max = max
-
-class CategoricalNode(CausalNode):
-    def __init__(self, name=None, categories=[]):
-        super().__init__(name=name)
-        self.categories = categories
-
 # returns a placeholder CausalNode whose name can be used to look up the actual node in the CausalNetwork
 def node(name):
     return PlaceholderNode(name=name)
@@ -866,7 +893,7 @@ def lift(func):
         node_inds_lookup = {j: i for i, j in enumerate(node_inds)} # given index in vargs, gives the index in nargs
         def f(*fnargs): # wrapper of the unlifted func, only given non-node positional arguments that are intended to be lifted to node types. fnargs has the same structure as nargs
             # here reconstruct fargs and fkwargs from fnargs and the non-node type args/kwargs
-            fargs = [(fnargs[node_inds_inv[i]] if isinstance(v, CausalNode) else args[i]) for i, v in enumerate(args)] # replaces the nodes in args by the corresponding values in fnargs
+            fargs = [(fnargs[node_inds_lookup[i]] if isinstance(v, CausalNode) else args[i]) for i, v in enumerate(args)] # replaces the nodes in args by the corresponding values in fnargs
             fkwargs = {n: (fnargs[node_inds_lookup[i+n_args]] if isinstance(kwargs[n], CausalNode) else kwargs[n]) for i, n in enumerate(names)} # replaces the nodes in fwargs by the corresponding values in fnargs
             return func(*fargs, **fkwargs)
         y = CausalNode()
@@ -884,7 +911,14 @@ def toInt(x):
 
 @lift
 def bound(x, floor=-np.inf, ceil=np.inf):
-    return np.min(np.max(x, floor), ceil)
+    if floor > ceil:
+        raise ValueError('floor has to be less than or equal to ceil.')
+    if x<floor:
+        return floor
+    elif x<ceil:
+        return x
+    else:
+        return ceil
 
 @lift
 def sum(*args):
@@ -907,6 +941,10 @@ def dist(*args, point):
 
 @lift
 def linear(*args, m=1, c=0, points=None):
+    '''
+    any number of arguments, m is either a number or an array of the same size as args
+    points: array of n points, each with n entries, where n = len(args)+1, from which m and c can be solved
+    '''
     if points:
         m, c = solveLinear(points)
     elif len(args) == 1:
@@ -917,6 +955,16 @@ def linear(*args, m=1, c=0, points=None):
 def categoricalLinear(x, category, params):
     m, c = params[category]
     return m*x+c
+
+@lift
+def choice(opts, weights=None, replace=True):
+    if weights is None:
+        chosen = np.random.choice(opts, replace=replace)
+    else:
+        weights = np.array(weights)
+        p = weights/np.sum(weights)
+        chosen = np.random.choice(opts, p=p, replace=replace)
+    return chosen
 
 # consider m@x+c=y where m,x are arrays and c,y are numbers. returns m,c given an array of points (x1, x2, ..., y)
 def solveLinear(points):
@@ -930,7 +978,7 @@ def solveLinear(points):
     return sol[0:-1], sol[-1]
 
 '''
-truffula new format
+truffula
 '''
 truffula = CausalNetwork()
 truffula.addNode(ContinuousNode(name='Latitude', min=0, max=1000))
@@ -940,11 +988,11 @@ truffula.addCause(effect='Wind speed',
     cause=bound(
         normal(
             mean=linear(
-                dist(node('Latitude'), node('Longitude'), (3000, 2000)), # absolute distance from a special point
+                dist(node('Latitude'), node('Longitude'), point=(3000, 2000)), # absolute distance from a special point
                 points=[(2236, 20), (3605, 3)] # mean speed=20 if close to point, =3 if far from point
                 ),
             stdev=linear(
-                dist(node('Latitude'), node('Longitude'), (1010, 800)),
+                dist(node('Latitude'), node('Longitude'), point=(1010, 800)),
                 points=[(2236, 10), (3605, 3)] # stdev=10 if close to point, =3 if far from point
                 )
             ),
@@ -977,10 +1025,13 @@ truffula.addCause(effect='Number of bees',
     cause=toInt(
         categoricalLinear(
             poisson( # rate depends on distance to bee hive and wind speed
-                linear(
-                    dist(node('Latitude'), node('Longitude'), (-50, 30)), # distance from bee hive
-                    node('Wind speed'),
-                    points=[(30, 0, 250), (1000, 30, 10), (30, 30, 40)] # rate=250 if close to hive with no wind, =10 if far from hive with high wind, =40 if close to hive with high wind
+                bound(
+                    linear(
+                        dist(node('Latitude'), node('Longitude'), point=(-50, 30)), # distance from bee hive
+                        node('Wind speed'),
+                        points=[(30, 0, 250), (1000, 30, 10), (30, 30, 40)] # rate=250 if close to hive with no wind, =10 if far from hive with high wind, =40 if close to hive with high wind
+                        ),
+                    floor=0
                     )
                 ),
             category=node('Supplement'),
@@ -991,9 +1042,52 @@ truffula.addCause(effect='Number of bees',
 truffula.addNode(DiscreteNode(name='Number of fruits', min=0, max=100))
 truffula.addCause(effect='Number of fruits',
     cause=poisson(
-        linear(
-            node('Soil quality'), node('Number of bees'),
-            points=[(0, 0, 0), (100, 200, 28), (100, 50, 16)] # rate=0 if poor soil and no bees, =28 if good soil and high bees, =16 if good soil and some bees
+        bound(
+            linear(
+                node('Soil quality'), node('Number of bees'),
+                points=[(0, 0, 0), (100, 200, 28), (100, 50, 16)] # rate=0 if poor soil and no bees, =28 if good soil and high bees, =16 if good soil and some bees
+                ),
+            floor=0
             )
+        )
+    )
+
+'''
+basketball
+'''
+basketball = CausalNetwork()
+basketball.addNode(CategoricalNode(name='Shot type', categories=['Above head', 'Layup', 'Hook shot']))
+basketball.addCause(effect='Shot type',
+    cause=choice(opts=['Above head', 'Layup', 'Hook shot'], weights=[6, 3, 2])
+    )
+basketball.addNode(ContinuousNode(name='Hours practised per week', min=0, max=20))
+basketball.addCause(effect='Hours practised per week',
+    cause=choice(opts=np.linspace(0, 14, 30), weights=1/np.linspace(1, 15, 30))
+    )
+basketball.addNode(ContinuousNode(name='Height (cm)', min=140, max=200))
+basketball.addNode(ContinuousNode(name='Ability', min=0, max=100))
+basketball.addCause(effect='Ability',
+    cause=linear(
+        linear(
+            node('Height (cm)'),
+            points=[(150, 40), (190, 60)] # 40 if height=150, 60 if height=190
+            ),
+        m=1,
+        c=linear(
+            node('Hours practised per week'),
+            points=[(0, 0), (10, 20)] # add 0 if hours=0, add 20 if hours=10
+            )
+        )
+    )
+basketball.addNode(ContinuousNode(name='Success rate', min=0, max=100))
+basketball.addCause(effect='Success rate',
+    cause=bound(
+        categoricalLinear(
+            node('Ability'),
+            category=node('Shot type'),
+            params={'Above head': (1, 0), 'Layup': (0.6, 0), 'Hook shot': (0.3, 0)}
+            ),
+        floor=0,
+        ceil=100
         )
     )

@@ -103,7 +103,7 @@ class Test:
         return fig, ax
     
     def printDiagnoses(self, threshold):
-        true_pos, true_neg, false_pos, false_neg = self.countDiagnoses(threshold)
+        self.true_pos, self.true_neg, self.false_pos, self.false_neg = self.countDiagnoses(threshold)
         print('True positives: %d' % true_pos)
         print('True negatives: %d' % true_neg)
         print('False positives: %d' % false_pos)
