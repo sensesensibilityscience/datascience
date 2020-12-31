@@ -631,8 +631,8 @@ class OrchardPlot:
     def response(self, change):
         if self.validate():
             with self.g.batch_update():
-                for i, name in enumerate(self.data['Group'].unique()):
-                    self.g.data[i].marker.color = self.data[name][self.textbox.value]
+                for i, name in enumerate(self.experiment.groups):
+                    self.g.data[i].marker.color = self.data[self.data['Group'] == name][self.textbox.value]
                     self.g.update_layout({'coloraxis':{'colorscale':'Plasma', 'colorbar':{'title':self.textbox.value}}})
                     self.g.data[i].hovertemplate = 'Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>'
 
@@ -640,13 +640,13 @@ class OrchardPlot:
         """Takes in the name of the group in the experiment and the name of the 
         variable used to create the color gradient"""
         traces = []
-        for i, name in enumerate(self.data['Group'].unique()):
+        for i, name in enumerate(self.experiment.groups):
             traces += [go.Scatter(x=self.data[self.data['Group'] == name]['Longitude'], y=self.data[self.data['Group'] == name]['Latitude'],
                                  marker=dict(color=self.data[self.data['Group'] == name][gradient], coloraxis='coloraxis'),
                                  mode='markers',
                                  name=name,
                                  hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>'+ self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0), marker_symbol=i)]
-        width = 700 if (len(self.data['Group'].unique()) == 1) else 725 + max([len(name) for name in self.data['Group'].unique()])*6.5
+        width = 700 if (len(self.experiment.groups) == 1) else 725 + max([len(name) for name in self.experiment.groups])*6.5
         go_layout = go.Layout(title=dict(text='Orchard Layout'),barmode='overlay', height=650, width=width,
                               xaxis=dict(title='Longitude', fixedrange=True, range=[-50, 1050]), 
                               yaxis=dict(title='Latitude', fixedrange=True, range=[-50, 1050]),
