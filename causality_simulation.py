@@ -214,6 +214,7 @@ class Experiment:
             dialog('Not all samples assigned', 'Not all samples have been assigned to a group! Please revise your assignments.', 'OK')
             return
         self.assigned = True
+        self.plotAssignment()
 
     def submitAssignment(self, sender=None):
         '''
@@ -221,7 +222,6 @@ class Experiment:
         Checks for duplicate group names
         '''
         self.setAssignment(self.group_assignment.getAssignment())
-        self.plotAssignment()
 
     def plotAssignment(self):
         '''
@@ -275,7 +275,7 @@ class Experiment:
         # generate the rest of each row using the existing values
         for i in range(len(self.data)):
             new_vals = self.network.generateSingle(self.data.loc[i])
-            for name, val in enumerate(new_vals):
+            for name, val in new_vals.items():
                 self.data.at[i, name] = val # use loc or iloc?
 
     def doExperiment(self, intervention, msg=False):
@@ -323,7 +323,7 @@ class BasketballExperiment(Experiment):
         super().__init__(basketball)
 
     def plotAssignment(self):
-        pass
+        self.a = AssignmentPlot(self, 'Basketball')
 
 class GroupAssignment:
     def __init__(self, experiment):
@@ -560,25 +560,27 @@ class SingleNodeInterventionSetting:
             return ['range', self.range_arg1.value, self.range_arg2.value]
 
 class AssignmentPlot:
-    def __init__(self, experiment, plot='Truffula'):
+    def __init__(self, experiment, plot):
         self.experiment = experiment
         self.group_names = experiment.data['Group'].unique()
         self.data = experiment.data
         self.plot = plot
         self.buildTraces()
         if self.plot == 'Truffula':
-            self.layout = go.Layout(title=dict(text='Tree Group Assignments'),barmode='overlay', height=650, width=800,
+            self.layout = go.Layout(title=dict(text='Tree Group Assignments'), barmode='overlay', height=650, width=800,
                                   xaxis=dict(title='Longitude', fixedrange=True), yaxis=dict(title='Latitude', fixedrange=True),
                                   hovermode='closest',
                                   margin=dict(b=80, r=200, autoexpand=False),
                                   showlegend=True)
-        else:
-            self.layout = go.Layout(title=dict(text='Student Group Assignments'),barmode='overlay', height=650, width=800,
+        elif self.plot == 'Basketball':
+            self.layout = go.Layout(title=dict(text='Student Group Assignments'), barmode='overlay', height=650, width=800,
                                   xaxis=dict(title='Student', fixedrange=True),
-                                  yaxis=dict(title='Height', fixedrange=True, range=(120, 200)),
+                                  yaxis=dict(title='Height (cm)', fixedrange=True, range=(120, 200)),
                                   hovermode='closest',
                                   margin=dict(b=80, r=200, autoexpand=False),
                                   showlegend=True)
+        else:
+            pass
         self.plot = go.FigureWidget(data=self.traces, layout=self.layout)
         display(self.plot)
         
@@ -589,9 +591,9 @@ class AssignmentPlot:
         if self.plot == 'Truffula':
             for i, name in enumerate(self.group_names):
                 self.traces += [go.Scatter(x=self.data[self.data['Group'] == name]['Longitude'], y=self.data[self.data['Group'] == name]['Latitude'], mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>', marker_symbol=i, name=name)]
-        else:
+        elif self.plot == 'Basketball':
             for i, name in enumerate(self.group_names):
-                self.traces += [go.Bar(x=self.data[self.data['Group'] == name]['id'], y=self.data[self.data['Group'] == name]['Height (cm)'], hovertemplate='Student: %{x} <br>Height: %{y} cm<br>', name=name)]
+                self.traces += [go.Bar(x=self.data[self.data['Group'] == name].index, y=self.data[self.data['Group'] == name]['Height (cm)'], hovertemplate='Student: %{x} <br>Height: %{y} cm<br>', name=name)]
         
     def updateAssignments(self):
         self.buildTraces()
