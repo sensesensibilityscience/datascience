@@ -699,23 +699,23 @@ class InteractivePlot:
     
     def display_values(self, group):
         text = ""
-        xType, yType = self.experiment.node.nodeDict()[self.textbox1.value].vartype, self.experiment.node.nodeDict()[self.textbox2.value].vartype
-        if xType != 'categorical' and yType != 'categorical':
+        xType, yType = type(self.experiment.network.nodes[self.textbox1.value]).__name__, type(self.experiment.network.nodes[self.textbox2.value]).__name__
+        if xType != 'CategoricalNode' and yType != 'CategoricalNode':
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                r = sp.pearsonr(self.experiment.data[group][self.textbox1.value], self.experiment.data[group][self.textbox2.value])
+                r = sp.pearsonr(self.experiment.data[self.experiment.data['Group'] == group][self.textbox1.value], self.experiment.data[self.experiment.data['Group'] == group][self.textbox2.value])
             text += group + ': ' + 'Correlation (r) is ' + '{0:#.3f}, '.format(r[0]) + 'P-value is ' + '{0:#.3g}'.format(r[1])
         return text
 
     def createTraces(self, x, y):
         traces = []
         annotations = []
-        annotation_y = -0.20 - 0.02*len(self.experiment.group_names)
+        annotation_y = -0.20 - 0.02*len(self.experiment.groups)
         traceType = self.choose_trace(x, y)
         if traceType == 'histogram':
-            for group in self.experiment.group_names:
-                data = self.experiment.data[group]
-                if self.experiment.node.nodeDict()[x].vartype == 'categorical':
+            for group in self.experiment.groups:
+                data = self.experiment.data[self.experiment.data['Group'] == group]
+                if type(self.experiment.network.nodes[x]).__name__ == 'CategoricalNode':
                     opacity = 1
                 else:
                     opacity = 0.75
@@ -723,14 +723,14 @@ class InteractivePlot:
                 y = 'Count'
                 barmode = 'overlay'
         elif traceType == 'scatter':
-            for group in self.experiment.group_names:
-                data = self.experiment.data[group]
+            for group in self.experiment.groups:
+                data = self.experiment.data[self.experiment.data['Group'] == group]
                 traces += [go.Scatter(x=data[x], y=data[y], mode='markers', opacity=0.75, name=group)]
                 annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
                 annotation_y += -0.05
                 barmode = 'overlay'
         elif traceType == 'bar':
-            for group in self.experiment.group_names:
+            for group in self.experiment.groups:
                 avg = self.experiment.data[group].groupby(x).agg('mean')
                 std = self.experiment.data[group].groupby(x).agg('std')[y]
                 traces += [go.Bar(x=list(avg.index), y=avg[y], name=group, error_y=dict(type='data', array=std))]
@@ -738,7 +738,7 @@ class InteractivePlot:
                 annotation_y += -0.05
                 barmode = 'group'
         elif traceType == 'barh':
-            for group in self.experiment.group_names:
+            for group in self.experiment.groups:
                 avg = self.experiment.data[group].groupby(y).agg('mean')
                 std = self.experiment.data[group].groupby(y).agg('std')[x]
                 traces += [go.Bar(x=avg[x], y=list(avg.index), name=group, error_x=dict(type='data', array=std), orientation='h')]
@@ -776,12 +776,12 @@ class InteractivePlot:
     def choose_trace(self, x, y):
         if y == 'None (Distributions Only)':
             return 'histogram'
-        xType, yType = self.experiment.node.nodeDict()[x].vartype, self.experiment.node.nodeDict()[y].vartype
-        if xType != 'categorical' and yType != 'categorical':
+        xType, yType = type(self.experiment.network.nodes[x]).__name__, type(self.experiment.network.nodes[y]).__name__
+        if xType != 'CategoricalNode' and yType != 'CategoricalNode':
             return 'scatter'
-        elif xType == 'categorical' and yType != 'categorical':
+        elif xType == 'CategoricalNode' and yType != 'CategoricalNode':
             return 'bar'
-        elif xType != 'categorical' and yType == 'categorical':
+        elif xType != 'CategoricalNode' and yType == 'CategoricalNode':
             return 'barh'
         else:
             return 'table'
@@ -791,7 +791,7 @@ class InteractivePlot:
             df = "Cannot create a pivot table with only one variable"
             return df
         if self.button.value == 'All':
-            for group in self.experiment.group_names:
+            for group in self.experiment.groups:
                 df = pd.DataFrame()
                 df = pd.concat([df, self.experiment.data[group]])
             df = df.groupby([self.textbox1.value, self.textbox2.value]).agg('count').reset_index().pivot(self.textbox1.value, self.textbox2.value, self.options[0])
