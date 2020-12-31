@@ -584,14 +584,14 @@ class AssignmentPlot:
         
     def buildTraces(self):
         self.traces = []
-        self.group_names = self.experiment.group_names
+        self.group_names = self.experiment.data['Group'].unique()
         self.data = self.experiment.data
         if self.plot == 'Truffula':
             for i, name in enumerate(self.group_names):
-                self.traces += [go.Scatter(x=self.data[name]['Longitude'], y=self.data[name]['Latitude'], mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>', marker_symbol=i, name=name)]
+                self.traces += [go.Scatter(x=self.data[self.data['Group'] == name]['Longitude'], y=self.data[self.data['Group'] == name]['Latitude'], mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>', marker_symbol=i, name=name)]
         else:
             for i, name in enumerate(self.group_names):
-                self.traces += [go.Bar(x=self.data[name]['id'], y=self.data[name]['Height (cm)'], hovertemplate='Student: %{x} <br>Height: %{y} cm<br>', name=name)]
+                self.traces += [go.Bar(x=self.data[self.data['Group'] == name]['id'], y=self.data[self.data['Group'] == name]['Height (cm)'], hovertemplate='Student: %{x} <br>Height: %{y} cm<br>', name=name)]
         
     def updateAssignments(self):
         self.buildTraces()
@@ -605,13 +605,12 @@ class OrchardPlot:
     def __init__(self, experiment, gradient=None, show='all'):
         self.data = experiment.data
         self.experiment = experiment
-        self.options = self.data[experiment.group_names[0]].columns.tolist()
-        if show != 'all':
-            for i in self.options.copy():
-                if i not in show:
-                    self.options.remove(i)
-        for name in experiment.node.nodeDict():
-            if experiment.node.nodeDict()[name].vartype == 'categorical' and name in show:
+        if show == 'all':
+            self.options = [col for col in self.data.columns if type(col) is str and col != 'Group']
+        else:
+            self.options = show
+        for node in experiment.network.nodes:
+            if isinstance(node, CategoricalNode) and node.name in show:
                 self.options.remove(name)
         self.options.sort()
         if not gradient:
@@ -630,7 +629,7 @@ class OrchardPlot:
     def response(self, change):
         if self.validate():
             with self.g.batch_update():
-                for i, name in enumerate(self.experiment.group_names):
+                for i, name in enumerate(self.data['Group'].unique()):
                     self.g.data[i].marker.color = self.data[name][self.textbox.value]
                     self.g.update_layout({'coloraxis':{'colorscale':'Plasma', 'colorbar':{'title':self.textbox.value}}})
                     self.g.data[i].hovertemplate = 'Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>'
@@ -639,13 +638,13 @@ class OrchardPlot:
         """Takes in the name of the group in the experiment and the name of the 
         variable used to create the color gradient"""
         traces = []
-        for i, name in enumerate(self.experiment.group_names):
-            traces += [go.Scatter(x=self.data[name]['Longitude'], y=self.data[name]['Latitude'],
-                                 marker=dict(color=self.data[name][gradient], coloraxis='coloraxis'),
+        for i, name in enumerate(self.data['Group'].unique()):
+            traces += [go.Scatter(x=self.data[self.data['Group'] == name]['Longitude'], y=self.data[self.data['Group'] == name]['Latitude'],
+                                 marker=dict(color=self.data[self.data['Group'] == name][gradient], coloraxis='coloraxis'),
                                  mode='markers',
                                  name=name,
                                  hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>'+ self.textbox.value + ': %{marker.color}<br>', hoverlabel=dict(namelength=0), marker_symbol=i)]
-        width = 700 if (len(self.experiment.group_names) == 1) else 725 + max([len(name) for name in self.experiment.group_names])*6.5
+        width = 700 if (len(self.data['Group'].unique()) == 1) else 725 + max([len(name) for name in self.data['Group'].unique()])*6.5
         go_layout = go.Layout(title=dict(text='Orchard Layout'),barmode='overlay', height=650, width=width,
                               xaxis=dict(title='Longitude', fixedrange=True, range=[-50, 1050]), 
                               yaxis=dict(title='Latitude', fixedrange=True, range=[-50, 1050]),
