@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import ipywidgets as widgets
-
+# Kasia's edit
 class Test:
     def __init__(self, config, data=None):
         '''
@@ -81,7 +81,7 @@ class Test:
         false_pos = sum((self.results[:,0] >= threshold) * (self.results[:,1] == 0))
         false_neg = sum((self.results[:,0] < threshold) * (self.results[:,1] == 1))
         return true_pos, true_neg, false_pos, false_neg
-    
+
     def plotDiagnoses(self, threshold, stepsize=None):
         tmin = min(self.results[:,0])
         tmax = max(self.results[:,0])
@@ -101,7 +101,7 @@ class Test:
         ax.set_title(self.title)
         ax.legend()
         return fig, ax
-    
+
     def printDiagnoses(self, threshold):
         self.true_pos, self.true_neg, self.false_pos, self.false_neg = self.countDiagnoses(threshold)
         print('True positives: %d' % self.true_pos)
@@ -111,7 +111,7 @@ class Test:
         print('False positive rates: {:.2f}%'.format(self.false_pos/(self.true_pos+self.false_pos)*100))
         print('False negative rates: {:.2f}%'.format(self.false_neg/(self.true_neg+self.false_neg)*100))
         print('Overall accuracy: {:.2f}%'.format((self.true_pos+self.true_neg)/(self.true_pos+self.true_neg+self.false_pos+self.false_neg)*100))
-        
+
     def plot(self, stepsize=None):
         tmin = min(self.results[:,0])
         tmax = max(self.results[:,0])
