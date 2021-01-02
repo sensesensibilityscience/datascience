@@ -104,13 +104,13 @@ class Test:
     
     def printDiagnoses(self, threshold):
         self.true_pos, self.true_neg, self.false_pos, self.false_neg = self.countDiagnoses(threshold)
-        print('True positives: %d' % true_pos)
-        print('True negatives: %d' % true_neg)
-        print('False positives: %d' % false_pos)
-        print('False negatives: %d' % false_neg)
-        print('False positive rates: {:.2f}%'.format(false_pos/(true_pos+false_pos)*100))
-        print('False negative rates: {:.2f}%'.format(false_neg/(true_neg+false_neg)*100))
-        print('Overall accuracy: {:.2f}%'.format((true_pos+true_neg)/(true_pos+true_neg+false_pos+false_neg)*100))
+        print('True positives: %d' % self.true_pos)
+        print('True negatives: %d' % self.true_neg)
+        print('False positives: %d' % self.false_pos)
+        print('False negatives: %d' % self.false_neg)
+        print('False positive rates: {:.2f}%'.format(self.false_pos/(self.true_pos+self.false_pos)*100))
+        print('False negative rates: {:.2f}%'.format(self.false_neg/(self.true_neg+self.false_neg)*100))
+        print('Overall accuracy: {:.2f}%'.format((self.true_pos+self.true_neg)/(self.true_pos+self.true_neg+self.false_pos+self.false_neg)*100))
         
     def plot(self, stepsize=None):
         tmin = min(self.results[:,0])
