@@ -99,6 +99,11 @@ class CausalNetwork:
                     self.replacePlaceholders(n) # recurse down the tree
 
     def draw(self, root, intermediate=False):
+        '''
+        Returns a graphviz visualization of the underlying causal network.
+        root: the root node in the visualization
+        intermediate: set True to show unnamed intermediate nodes for debugging
+        '''
         g = Digraph(name=root)
         def draw_edges(node, g):
             if node.causes:
@@ -177,6 +182,7 @@ class Experiment:
         self.data = self.network.init_data.copy()
         self.assigned = False # has the assignment step been run
         self.done = False # has the experiment been done
+        self.a = None # AssignmentPlot, overwritten when .plotAssignment is run
 
     def assignment(self, config=None, hide_random=False):
         '''
@@ -214,7 +220,10 @@ class Experiment:
             dialog('Not all samples assigned', 'Not all samples have been assigned to a group! Please revise your assignments.', 'OK')
             return
         self.assigned = True
-        self.plotAssignment()
+        if self.a:
+            self.a.updateAssignments()
+        else:
+            self.plotAssignment()
 
     def submitAssignment(self, sender=None):
         '''
@@ -304,12 +313,13 @@ class TruffulaExperiment(Experiment):
         super().__init__(truffula)
 
     def plotAssignment(self):
-        self.a = AssignmentPlot(self, 'Truffula')
+        self.a = AssignmentPlot(self)
 
     def plotOrchard(self, gradient=None, show='all'):
         '''
-        Takes in the name of the group in the experiment and the name of the 
-        variable used to create the color gradient
+        Plots a scatterplot of the orchard layout with coloring to represent the variables listed in SHOW.
+        The default coloring is from the variable listed under GRADIENT, but there is a dropdown list for students to select
+        another variable to visualize.
         '''
         if not self.done:
             dialog('Experiment not performed', 'You have not yet performed the experiment! Click on "Perform experiment" before running this box.', 'OK')
@@ -323,7 +333,7 @@ class BasketballExperiment(Experiment):
         super().__init__(basketball)
 
     def plotAssignment(self):
-        self.a = AssignmentPlot(self, 'Basketball')
+        self.a = AssignmentPlot(self)
 
 class GroupAssignment:
     def __init__(self, experiment):
@@ -560,42 +570,58 @@ class SingleNodeInterventionSetting:
             return ['range', self.range_arg1.value, self.range_arg2.value]
 
 class AssignmentPlot:
-    def __init__(self, experiment, plot):
+    '''
+    AssignmentPlots are displayed when a student clicks "Show Assignment" to select a way to assign variables to
+    groups--they depict the student's choice of group assignments. This plot must be specified for each type of experiment
+    because different experiments have different initial attributes that require different kinds of visualizations.
+    e.g. the Basketball experiment must plot students with different heights, the Truffula experiment must plot trees and
+    their x, y coordinates
+    '''
+    def __init__(self, experiment):
         self.experiment = experiment
-        self.group_names = experiment.data['Group'].unique()
+        self.group_names = experiment.groups
         self.data = experiment.data
-        self.plot = plot
         self.buildTraces()
-        if self.plot == 'Truffula':
+        if type(self.experiment).__name__ == 'TruffulaExperiment':
             self.layout = go.Layout(title=dict(text='Tree Group Assignments'), barmode='overlay', height=650, width=800,
                                   xaxis=dict(title='Longitude', fixedrange=True), yaxis=dict(title='Latitude', fixedrange=True),
                                   hovermode='closest',
                                   margin=dict(b=80, r=200, autoexpand=False),
                                   showlegend=True)
-        elif self.plot == 'Basketball':
+        elif type(self.experiment).__name__ == 'BasketballExperiment':
             self.layout = go.Layout(title=dict(text='Student Group Assignments'), barmode='overlay', height=650, width=800,
                                   xaxis=dict(title='Student', fixedrange=True),
                                   yaxis=dict(title='Height (cm)', fixedrange=True, range=(120, 200)),
                                   hovermode='closest',
                                   margin=dict(b=80, r=200, autoexpand=False),
                                   showlegend=True)
-        else:
+        else: # must be extended for other kinds of experiments, layouts go here
             pass
         self.plot = go.FigureWidget(data=self.traces, layout=self.layout)
         display(self.plot)
         
     def buildTraces(self):
+        '''
+        Builds the plotly.go traces that are to be included in the visualization. Differs by type of experiment PLOT,
+        so extend here if adding another experiment.
+        '''
         self.traces = []
-        self.group_names = self.experiment.data['Group'].unique()
+        self.group_names = self.experiment.groups
         self.data = self.experiment.data
-        if self.plot == 'Truffula':
+        if type(self.experiment).__name__ == 'TruffulaExperiment':
             for i, name in enumerate(self.group_names):
                 self.traces += [go.Scatter(x=self.data[self.data['Group'] == name]['Longitude'], y=self.data[self.data['Group'] == name]['Latitude'], mode='markers', hovertemplate='Latitude: %{x} <br>Longitude: %{y} <br>', marker_symbol=i, name=name)]
-        elif self.plot == 'Basketball':
+        elif type(self.experiment).__name__ == 'BasketballExperiment':
             for i, name in enumerate(self.group_names):
                 self.traces += [go.Bar(x=self.data[self.data['Group'] == name].index, y=self.data[self.data['Group'] == name]['Height (cm)'], hovertemplate='Student: %{x} <br>Height: %{y} cm<br>', name=name)]
+        else: # must be extended for other kinds of experiments, traces go here
+            pass
         
     def updateAssignments(self):
+        '''
+        Updates the assignment plot's traces and layout when student clicks Visualise Assignment after having already visualized
+        the assignment once
+        '''
         self.buildTraces()
         with self.plot.batch_update():
             self.plot.data = []
@@ -604,6 +630,10 @@ class AssignmentPlot:
             self.plot.layout = self.layout
 
 class OrchardPlot:
+    '''
+    For TruffulaExperiment only; plots a scatterplot of the trees' coordinate locations, colored by the variable GRADIENT
+    and with a dropdown list that includes all variables listed in SHOW. Includes a colorbar.
+    '''
     def __init__(self, experiment, gradient=None, show='all'):
         self.data = experiment.data
         self.experiment = experiment
@@ -637,8 +667,9 @@ class OrchardPlot:
                     self.g.data[i].hovertemplate = 'Latitude: %{x} <br>Longitude: %{y} <br>' + self.textbox.value + ': %{marker.color}<br>'
 
     def plotOrchard(self, gradient):
-        """Takes in the name of the group in the experiment and the name of the 
-        variable used to create the color gradient"""
+        '''
+        Creates/Initializes a FigureWidget object with a scatterplot of the trees and colors it with the variable GRADIENT
+        '''
         traces = []
         for i, name in enumerate(self.experiment.groups):
             traces += [go.Scatter(x=self.data[self.data['Group'] == name]['Longitude'], y=self.data[self.data['Group'] == name]['Latitude'],
@@ -659,6 +690,10 @@ class OrchardPlot:
         display(wd.VBox([container, self.g]))
 
 class InteractivePlot:
+    '''
+    An interactive plot that plots experiment results. Includes a dropdown list that changes the variables plotted. Automatically
+    chooses the plot type depending on the type of variables involved.
+    '''
     def __init__(self, experiment, show='all'):
         self.experiment = experiment
         self.x_options = list(experiment.network.nodes.keys())
@@ -698,6 +733,9 @@ class InteractivePlot:
         self.button.layout.display = 'none'
     
     def display_values(self, group):
+        '''
+        Displays the correlations and p-values for each group in an annotation below the plot
+        '''
         text = ""
         xType, yType = type(self.experiment.network.nodes[self.textbox1.value]).__name__, type(self.experiment.network.nodes[self.textbox2.value]).__name__
         if xType != 'CategoricalNode' and yType != 'CategoricalNode':
@@ -708,6 +746,9 @@ class InteractivePlot:
         return text
 
     def createTraces(self, x, y):
+        '''
+        Returns the traces and layout depending on the appropriate trace type for the variables selected (X and Y)
+        '''
         traces = []
         annotations = []
         annotation_y = -0.20 - 0.02*len(self.experiment.groups)
@@ -715,7 +756,7 @@ class InteractivePlot:
         if traceType == 'histogram':
             for group in self.experiment.groups:
                 data = self.experiment.data[self.experiment.data['Group'] == group]
-                if type(self.experiment.network.nodes[x]).__name__ == 'CategoricalNode':
+                if type(self.experiment.network.nodes[x]).__name__ == 'CategoricalNode': # if counts of categories, make opacity 1 because bars will not overlap
                     opacity = 1
                 else:
                     opacity = 0.75
@@ -726,7 +767,7 @@ class InteractivePlot:
             for group in self.experiment.groups:
                 data = self.experiment.data[self.experiment.data['Group'] == group]
                 traces += [go.Scatter(x=data[x], y=data[y], mode='markers', opacity=0.75, name=group)]
-                annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
+                annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))] # adds annotations with spacing that include the correlation/p-value
                 annotation_y += -0.05
                 barmode = 'overlay'
         elif traceType == 'bar':
@@ -734,7 +775,7 @@ class InteractivePlot:
                 avg = self.experiment.data[group].groupby(x).agg('mean')
                 std = self.experiment.data[group].groupby(x).agg('std')[y]
                 traces += [go.Bar(x=list(avg.index), y=avg[y], name=group, error_y=dict(type='data', array=std))]
-                annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
+                annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))] # adds annotations with spacing that include the correlation/p-value
                 annotation_y += -0.05
                 barmode = 'group'
         elif traceType == 'barh':
@@ -742,7 +783,7 @@ class InteractivePlot:
                 avg = self.experiment.data[group].groupby(y).agg('mean')
                 std = self.experiment.data[group].groupby(y).agg('std')[x]
                 traces += [go.Bar(x=avg[x], y=list(avg.index), name=group, error_x=dict(type='data', array=std), orientation='h')]
-                annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))]
+                annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))] # adds annotations with spacing that include the correlation/p-value
                 annotation_y += -0.05
                 barmode = 'group'
         go_layout = go.Layout(title=dict(text=x if traceType == 'histogram' else x + " vs. " + y ),
@@ -755,12 +796,18 @@ class InteractivePlot:
         return traces, go_layout
     
     def initTraces(self):
+        '''
+        Initializes a FigureWidget with the traces and layout
+        '''
         traces, layout = self.createTraces(self.x_options[0], self.y_options[0])
         self.g = go.FigureWidget(layout=layout)
         for t in traces:
             self.g.add_traces(t)
             
     def updateTraces(self):
+        '''
+        Updates the FigureWidget with the appropriate traces and layout after a new dropdown item is selected
+        '''
         self.g.data = []
         traces, layout = self.createTraces(self.textbox1.value, self.textbox2.value)
         for t in traces:
@@ -774,6 +821,9 @@ class InteractivePlot:
         self.button.observe(self.update_table, names='value')
 
     def choose_trace(self, x, y):
+        '''
+        Returns the appropriate trace type given the variables X and Y according to their variable types
+        '''
         if y == 'None (Distributions Only)':
             return 'histogram'
         xType, yType = type(self.experiment.network.nodes[x]).__name__, type(self.experiment.network.nodes[y]).__name__
@@ -787,6 +837,9 @@ class InteractivePlot:
             return 'table'
 
     def pivot_table(self):
+        '''
+        Creates a pivot table for categorical variables
+        '''
         if self.textbox1.value == self.textbox2.value:
             df = "Cannot create a pivot table with only one variable"
             return df
@@ -800,6 +853,9 @@ class InteractivePlot:
         return df
 
     def update_table(self, change):
+        '''
+        Displays the pivot table and button display for pivot table options if applicable
+        '''
         update_display(self.pivot_table(), display_id='1');
         self.button.layout.display = 'flex'
 
@@ -807,10 +863,13 @@ class InteractivePlot:
         return self.textbox1.value in self.x_options and self.textbox2.value in (self.x_options + ['None (Distributions Only)'])
 
     def response(self, change):
+        '''
+        Updates the display when a new dropdown item is selected
+        '''
         if self.validate():
             traceType = self.choose_trace(self.textbox1.value, self.textbox2.value)
             with self.g.batch_update():
-                if traceType == 'table':
+                if traceType == 'table': # if the variables are both categorical, displays a pivot table
                     self.g.update_layout({'height':10, 'width':10})
                     self.g.layout.xaxis.title = ""
                     self.g.layout.yaxis.title = ""
@@ -818,10 +877,13 @@ class InteractivePlot:
                     self.button.layout.display = 'flex'
                 else:
                     self.updateTraces()
-                    update_display(Nothing(), display_id='1')
+                    update_display(Nothing(), display_id='1') # update pivot table display with nothing if not categorical
                     self.button.layout.display = 'none'
 
 class Nothing:
+    '''
+    Used with IPython.display (particularly when updating displays) to display nothing
+    '''
     def __init__(self):
         None
     def __repr__(self):
