@@ -772,16 +772,18 @@ class InteractivePlot:
                 barmode = 'overlay'
         elif traceType == 'bar':
             for group in self.experiment.groups:
-                avg = self.experiment.data[group].groupby(x).agg('mean')
-                std = self.experiment.data[group].groupby(x).agg('std')[y]
+                data = self.experiment.data[self.experiment.data['Group'] == group]
+                avg = data.groupby(x).agg('mean')
+                std = data.groupby(x).agg('std')[y]
                 traces += [go.Bar(x=list(avg.index), y=avg[y], name=group, error_y=dict(type='data', array=std))]
                 annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))] # adds annotations with spacing that include the correlation/p-value
                 annotation_y += -0.05
                 barmode = 'group'
         elif traceType == 'barh':
             for group in self.experiment.groups:
-                avg = self.experiment.data[group].groupby(y).agg('mean')
-                std = self.experiment.data[group].groupby(y).agg('std')[x]
+                data = self.experiment.data[self.experiment.data['Group'] == group]
+                avg = data.groupby(y).agg('mean')
+                std = data.groupby(y).agg('std')[x]
                 traces += [go.Bar(x=avg[x], y=list(avg.index), name=group, error_x=dict(type='data', array=std), orientation='h')]
                 annotations += [dict(xref='paper',yref='paper',x=0.5, y=annotation_y, showarrow=False, text=self.display_values(group))] # adds annotations with spacing that include the correlation/p-value
                 annotation_y += -0.05
