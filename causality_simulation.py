@@ -741,8 +741,11 @@ class InteractivePlot:
         if xType != 'CategoricalNode' and yType != 'CategoricalNode':
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                r = sp.pearsonr(self.experiment.data[self.experiment.data['Group'] == group][self.textbox1.value], self.experiment.data[self.experiment.data['Group'] == group][self.textbox2.value])
-            text += group + ': ' + 'Correlation (r) is ' + '{0:#.3f}, '.format(r[0]) + 'P-value is ' + '{0:#.3g}'.format(r[1])
+                
+                x = self.experiment.data[self.experiment.data['Group'] == group][self.textbox1.value]
+                y = self.experiment.data[self.experiment.data['Group'] == group][self.textbox2.value]
+                r, p, ci_lo, ci_hi = pearsonr_ci(x,y)
+            text += group + ': ' + 'Correlation (r) is ' + '{0:#.3f}, '.format(r) + 'P-value is ' + '{0:#.3g}, '.format(p) +f'confidence interval for corr is [{round(ci_lo,2)}, {round(ci_hi,2)}] '
         return text
 
     def createTraces(self, x, y):
@@ -1041,6 +1044,32 @@ def solveLinear(points):
         b[i] = points[i][-1]
     sol = np.linalg.solve(A, b)
     return sol[0:-1], sol[-1]
+
+def pearsonr_ci(x,y,alpha=0.05):
+    ''' calculate Pearson correlation along with the confidence interval using scipy and numpy
+    Parameters
+    ----------
+    x, y : iterable object such as a list or np.array
+      Input for correlation calculation
+    alpha : float
+      Significance level. 0.05 by default
+    Returns
+    -------
+    r : float
+      Pearson's correlation coefficient
+    pval : float
+      The corresponding p value
+    lo, hi : float
+      The lower and upper bound of confidence intervals
+    '''
+
+    r, p = sp.pearsonr(x,y)
+    r_z = np.arctanh(r)
+    se = 1/np.sqrt(x.size-3)
+    z = sp.norm.ppf(1-alpha/2)
+    lo_z, hi_z = r_z-z*se, r_z+z*se
+    lo, hi = np.tanh((lo_z, hi_z))
+    return r, p, lo, hi
 
 '''
 truffula
