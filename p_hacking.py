@@ -15,9 +15,9 @@ import seaborn as sns
 
 POSSIBLE_VARIABLES = make_array("Size", "Shape", "Weight", "Height", "Width", "Density", "Length", "Time",
                                "Speed", "Acceleration", "Reflectivity", "Emissivity", "Strength", "Age",
-                               "Bounce", "Price", "Rarity", "X", "Y", "Z", "Number", "Cost", "Absorptivity",
+                               "Bounce", "Price", "Rarity", "Number", "Cost", "Absorptivity",
                                 "Magnetism", "Conductance", "Impedance", "Resistance", "Volume", "Boiling", "Melting", 
-                                "Freezing")
+                                "Freezing", "X", "Y", "Z")
 
 def generate_data(n, r, sample_size):
     np.random.seed(8)
