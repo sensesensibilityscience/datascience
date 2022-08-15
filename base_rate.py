@@ -144,14 +144,14 @@ class BayesForm:
         self.q5 = BayesQuestion(wd.BoundedFloatText(value=0.5, min=0, max=1, step=0.001), self.q4, self.q5Submit)
         self.q6 = BayesQuestion(wd.RadioButtons(options=['Positive (B)', 'Negative (¬B)']), self.q5, self.q6Submit)
         self.result = BayesResult(self.q6, self.restart)
-        self.q1.display(r'What is the question you are trying to answer?<br />We will call this $A$ if yes and $\neg A$ if no.')
+        self.q1.display(r'What is the question you are trying to answer? (E.g. Do I have Covid? Is Jack the killer?)<br />We will call this $A$ if yes and $\neg A$ if no.')
 
     def q1Submit(self):
         self.statement = statementify(self.q1.textbox.value)
         self.q2.display('Without performing any further tests, what is the prior probability that ' + self.statement + '?<br />$P(A)$')
 
     def q2Submit(self):
-        self.q3.display(r'What is the test you are performing?<br />We will call this $B$ if positive and $\neg B$ if negative.')
+        self.q3.display(r'What is the test you are performing? (E.g. PCR test, smoke detector.)<br />We will call this $B$ if positive and $\neg B$ if negative.')
 
     def q3Submit(self):
         self.q4.display('If ' + self.statement + ', how likely would the ' + self.q3.textbox.value + r' correctly turn up positive?<br />$\text{True positive rate} = P(B|A) = 1-P(\neg B|A) = 1 - \text{False negative rate}$')
