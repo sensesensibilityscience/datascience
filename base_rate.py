@@ -3,8 +3,14 @@ import lemminflect
 import ipywidgets as wd
 from IPython.display import display
 
-# load English language model (medium size)
-nlp = spacy.load('en_core_web_md')
+'''
+TODO
+* Fix apostrophes having spaces
+* Add square grid with colours graphic
+'''
+
+# load English language model (large size)
+nlp = spacy.load('en_core_web_lg')
 
 def getInfo(text):
     '''
