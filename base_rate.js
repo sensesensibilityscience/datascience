@@ -33,11 +33,11 @@ var prior = 0.5
 var true_pos = 0.5
 var true_neg = 0.5
 
-function drawSlider1(d3, slider, g) {
-    g.call(
+function drawSlider1(d3, slider, svg) {
+    svg.call(
         slider.sliderBottom()
             .min(0).max(1)
-            .width(300)
+            .width(250)
             .tickFormat(d3.format('.2%'))
             .tickValues([0, 0.25, 0.5, 0.75, 1])
             .default(.5)
@@ -46,7 +46,7 @@ function drawSlider1(d3, slider, g) {
                 drawCircles(d3.select('g#circles'))
             })
     )
-    .attr('transform', 'translate(50, 20)')
+    .attr('transform', 'translate(20, 20)')
 }
 
 function drawSlider2(d3, slider, g) {
@@ -62,7 +62,23 @@ function drawSlider2(d3, slider, g) {
                 drawCircles(d3.select('g#circles'))
             })
     )
-    .attr('transform', 'translate(50, 40)')
+    .attr('transform', 'translate(20, 20)')
+}
+
+function drawSlider3(d3, slider, g) {
+    g.call(
+        slider.sliderBottom()
+            .min(0).max(1)
+            .width(300)
+            .tickFormat(d3.format('.2%'))
+            .tickValues([0, 0.25, 0.5, 0.75, 1])
+            .default(.5)
+            .on('onchange', val => {
+                true_neg = val
+                drawCircles(d3.select('g#circles'))
+            })
+    )
+    .attr('transform', 'translate(20, 20)')
 }
 
 function drawCircles(g) {
@@ -70,7 +86,7 @@ function drawCircles(g) {
     let row_len = 40
     let d = 20
     let marginx = 20
-    let marginy = 150
+    let marginy = 20
     // https://samanthaz.me/writing/finding-the-right-color-palettes-for-data-visualizations
     let pos_col = '#fadc64' // light yellow
     let neg_col = '#9fd5ce' // light blue
@@ -112,23 +128,23 @@ function drawCircles(g) {
         .attr('stroke-width', 2.2)
 }
 
-function main(d3, slider, svg) {
-    let g_slider1 = svg.append('g')
-    let g_slider2 = svg.append('g')
-    let g_slider3 = svg.append('g')
-    let g_circles = svg.append('g').attr('id', 'circles')
-    drawSlider1(d3, slider, g_slider1)
-    drawSlider2(d3, slider, g_slider2)
-    drawCircles(g_circles)
-}
-
-// let svg = d3.select('body').append('svg').attr('width', '100%').attr('height', '600px')
-// main(svg)
-
 require.undef('viz')
 define('viz', ['d3', 'slider'], function(d3, slider) {
     function draw(container) {
-        main(d3, slider, d3.select(container).append('svg').attr('width', '100%').attr('height', '1000px'))
+        d3.select(container).append('div').attr('id', 'sliders')
+        d3.select('#sliders').append('div').attr('id', 'slider1')
+        d3.select('#sliders').append('div').attr('id', 'slider2')
+        d3.select('#sliders').append('div').attr('id', 'slider3')
+        let svg_slider1 = d3.select('#slider1').append('svg').attr('width', '100%').attr('height', '100px')
+        drawSlider1(d3, slider, svg_slider1)
+        let svg_slider2 = d3.select('#slider2').append('svg').attr('width', '100%').attr('height', '100px')
+        drawSlider2(d3, slider, svg_slider2)
+        let svg_slider3 = d3.select('#slider3').append('svg').attr('width', '100%').attr('height', '100px')
+        drawSlider3(d3, slider, svg_slider3)
+        d3.select(container).append('div').attr('id', 'graphic')
+        d3.select('#graphic').append('svg').attr('width', '100%').attr('height', '600px')
+        let g_circles = d3.select('#graphic svg').append('g').attr('id', 'circles')
+        drawCircles(g_circles)
     }
     return draw;
 });
