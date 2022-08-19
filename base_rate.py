@@ -5,8 +5,11 @@ from IPython.display import display
 
 '''
 TODO
-* Fix apostrophes having spaces
+* Fix apostrophes and hyphens having spaces
 * Add square grid with colours graphic
+* Change number entry into sliders
+* Graphic and final number react in real time to the sliders
+* Add option to display equations or not
 '''
 
 # load English language model (large size)
