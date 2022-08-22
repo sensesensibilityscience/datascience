@@ -136,7 +136,7 @@ function drawCircles(g) {
         .attr('stroke-width', 2.2)
 }
 
-function drawLegend(g) {
+function drawLegend(d3, g) {
     let y = 500
     let r = 8
     let stroke_width = 2.2/6*8
@@ -176,13 +176,23 @@ function drawLegend(g) {
         .attr('stroke-width', stroke_width)
 }
 
+function ppv() {
+    return prior * true_pos / (prior * true_pos + (1-prior) * (1-true_neg))
+}
+
+function npv() {
+    return (1-prior) * true_neg / ((1-prior) * true_neg + prior * (1-true_pos))
+}
+
 function legendText(d3, g) {
     let y = 506
     let data = [
         ['true_pos_text', 65, y, d3.format('.0f')(total * prior * true_pos) + ' true positive(s)'],
         ['false_neg_text', 265, y, d3.format('.0f')(total * prior * (1-true_pos)) + ' false negative(s)'],
         ['false_pos_text', 465, y, d3.format('.0f')(total * (1-prior) * (1-true_neg)) + ' false positive(s)'],
-        ['true_neg_text', 665, y, d3.format('.0f')(total * (1-prior) * true_neg) + ' true negative(s)']
+        ['true_neg_text', 665, y, d3.format('.0f')(total * (1-prior) * true_neg) + ' true negative(s)'],
+        ['PPV', 230, y+34, d3.format('.1%')(ppv()) + ' of those who tested positive are true positives'],
+        ['NPV', 230, y+58, d3.format('.1%')(npv()) + ' of those who tested negatives are true negatives']
     ]
     g.selectAll('.legend_text')
         .data(data)
@@ -200,6 +210,7 @@ function legendText(d3, g) {
         .text(function(d, i) {
             return d[3]
         })
+    g.select()
 }
 
 function onInput(d3) {
@@ -269,10 +280,14 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         let g_circles = d3.select('#graphic svg').append('g').attr('id', 'circles')
         let g_legend = d3.select('#graphic svg').append('g').attr('id', 'legend')
         drawCircles(g_circles)
-        drawLegend(g_legend)
+        drawLegend(d3, g_legend)
         legendText(d3, g_legend)
+        let ppv_text = d3.select('#PPV')
+        makeTooltip(d3, container, ppv_text, (e) => {return 'Given that the ' + e.test + ' came back positive, the probability that ' + e.statement + ' is ' + d3.format('.1%')(ppv()) + '.'})
+        let npv_text = d3.select('#NPV')
+        makeTooltip(d3, container, npv_text, (e) => {return 'Given that the ' + e.test + ' came back negative, the probability that ' + e.statement_neg + ' is ' + d3.format('.1%')(npv()) + '.'})
     }
     return draw
 })
 
-element.append('Loaded 🎉')
+// element.append('Loaded 🎉')
