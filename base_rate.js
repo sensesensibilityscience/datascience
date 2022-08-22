@@ -1,6 +1,7 @@
 /*
 TODO
-# Rearrange the circles into left-right halves for pos/neg like a histogram
+# Escape quotes and apostrophes in input, test bugs
+# Add formulas
 */
 
 require.config({ 
@@ -208,6 +209,28 @@ function onInput(d3) {
     IPython.notebook.kernel.execute(command)
 }
 
+function makeTooltip(d3, container, element, f) {
+    element
+        .on('mouseover', function(d) {
+            d3.select(container).append('div').attr('id', 'my_tooltip')
+            d3.json('base_rate.json').then(function(e) {
+                let t = f(e)
+                d3.select('#my_tooltip').text(t)
+                    .transition(d3.transition().duration(100).ease(d3.easeLinear))
+                    .style('opacity', 1)
+            })
+        }).on('mousemove', function(d) {
+            d3.select('#my_tooltip')
+                .style('left', (d3.pointer(d, container)[0]-24) + 'px')
+                .style('top', (d3.pointer(d, container)[1]+20) + 'px')
+        }).on('mouseleave', function(d) {
+            d3.select('#my_tooltip')
+                .transition(d3.transition().duration(100).ease(d3.easeLinear))
+                .style('opacity', 0)
+            d3.select('#my_tooltip').remove()
+        })
+}
+
 require.undef('viz')
 define('viz', ['d3', 'slider'], function(d3, slider) {
     function draw(container) {
@@ -220,21 +243,20 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         d3.select('#questions').append('br')
         d3.select('#questions').append('label').attr('for', 'q2').text('What is the test you are performing?').style('margin-right', '20px')
         d3.select('#questions').append('input').attr('type', 'text').attr('id', 'q2').attr('name', 'q2').attr('placeholder', 'e.g. PCR test').style('width', '200px')
+        d3.select('#q2').on('input', function() {
+            onInput(d3)
+        })
 
         d3.select(container).append('div').attr('id', 'sliders')
         d3.select('#sliders').append('div').attr('id', 'slider1')
         d3.select('#sliders').append('div').attr('id', 'slider2')
         d3.select('#sliders').append('div').attr('id', 'slider3')
-        d3.select('#slider1').append('span').attr('class', 'slider_label').text('Prior probability').on('mouseover', function(d) {
-            d3.json('base_rate.json').then(function(e) {
-                let t = 'Without performing any further tests, what is the prior probability that ' + e.statement + '?'
-                d3.select('.my_tooltip').text(t).style('opacity', 1)
-            })
-        }).on('mouseleave', function(d) {
-            d3.select('.my_tooltip').style('opacity', 0)
-        })
-        d3.select('#slider2').append('div').attr('class', 'slider_label').text('True positive rate')
-        d3.select('#slider3').append('div').attr('class', 'slider_label').text('True negative rate')
+        let sl1 = d3.select('#slider1').append('span').attr('class', 'slider_label').text('Prior probability')
+        makeTooltip(d3, container, sl1, (e) => {return 'Without performing any further tests, what is the prior probability that ' + e.statement + '?'})
+        let sl2 = d3.select('#slider2').append('span').attr('class', 'slider_label').text('True positive rate')
+        makeTooltip(d3, container, sl2, (e) => {return 'If ' + e.statement + ', how likely would the ' + e.test + ' correctly turn up positive?'})
+        let sl3 = d3.select('#slider3').append('span').attr('class', 'slider_label').text('True negative rate')
+        makeTooltip(d3, container, sl3, (e) => {return 'If ' + e.statement_neg + ', how likely would the ' + e.test + ' correctly turn up negative?'})
         let svg_slider1 = d3.select('#slider1').append('svg').attr('width', '280px').attr('height', '70px')
         drawSlider1(d3, slider, svg_slider1)
         let svg_slider2 = d3.select('#slider2').append('svg').attr('width', '280px').attr('height', '70px')
@@ -249,8 +271,6 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         drawCircles(g_circles)
         drawLegend(g_legend)
         legendText(d3, g_legend)
-
-        d3.select('#slider1').append('div').attr('class', 'my_tooltip')
     }
     return draw
 })
