@@ -223,7 +223,7 @@ function onInput(d3) {
 function makeTooltip(d3, container, element, f) {
     element
         .on('mouseover', function(d) {
-            d3.select(container).append('div').attr('id', 'my_tooltip')
+            // d3.select(container).append('div').attr('id', 'my_tooltip')
             d3.json('base_rate.json').then(function(e) {
                 let t = f(e)
                 d3.select('#my_tooltip').text(t)
@@ -238,7 +238,6 @@ function makeTooltip(d3, container, element, f) {
             d3.select('#my_tooltip')
                 .transition(d3.transition().duration(100).ease(d3.easeLinear))
                 .style('opacity', 0)
-            d3.select('#my_tooltip').remove()
         })
 }
 
@@ -246,6 +245,7 @@ require.undef('viz')
 define('viz', ['d3', 'slider'], function(d3, slider) {
     function draw(container) {
         d3.select(container).append('div').attr('id', 'questions')
+        d3.select(container).append('div').attr('id', 'my_tooltip')
         d3.select('#questions').append('label').attr('for', 'q1').text('What is the question you are trying to answer?').style('margin-right', '20px')
         d3.select('#questions').append('input').attr('type', 'text').attr('id', 'q1').attr('name', 'q1').attr('placeholder', 'e.g. Do I have Covid? Is Jack the killer?').style('width', '500px')
         d3.select('#q1').on('input', function() {
