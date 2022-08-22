@@ -81,65 +81,6 @@ def toJS(q1, q2):
     with open('base_rate.json', 'w') as f:
         f.write(json.dumps(to_js))
 
-def load():
-    display(HTML('''<style>
-    #questions {
-        height: 80px;
-    }
-
-    #sliders {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: wrap;
-        width: 100%;
-        height: 90px;
-        text-align: center;
-    }
-
-    #slider1 {
-        flex: 33.33%;
-    }
-
-    #slider2 {
-        flex: 33.33%;
-    }
-
-    #slider3 {
-        flex: 33.33%;
-    }
-
-    .slider text {
-        font-size: 12pt;
-    }
-
-    .slider_label {
-        font-size: 14pt;
-    }
-
-    #graphic {
-        width: 100%;
-        text-align: center;
-        font-size: 12pt;
-    }
-
-    .legend_text {
-        text-align: left;
-    }
-
-    #my_tooltip {
-        position: absolute;
-        width: 240px;
-        opacity: 0;
-        background-color: #386fb0;
-        color: #fffffb;
-        border-radius: 5px;
-        padding: 12px;
-        box-shadow: 3px 3px 2px #ddd;
-        text-align: center;
-    }
-    </style>'''))
-    Javascript(filename='base_rate.js')
-
 class BayesQuestion:
     def __init__(self, textbox, previous, submit_callback, back=True):
         self.displayed = False
