@@ -74,6 +74,8 @@ def bayes(prior, true_pos_rate, false_pos_rate, pos):
         return prior * (1 - true_pos_rate) / (prior * (1 - true_pos_rate) + (1 - prior) * (1 - false_pos_rate))
 
 def toJS(q1, q2):
+    q1 = 'Does this koala have KOALA-21?' if q1 == '' else q1
+    q2 = 'test' if q2 == '' else q2
     statement = statementify(q1)
     statement_neg = statementify(q1, negate=True)
     test = q2

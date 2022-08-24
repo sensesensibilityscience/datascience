@@ -257,6 +257,7 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         d3.select('#q2').on('input', function() {
             onInput(d3)
         })
+        onInput(d3)
 
         d3.select(container).append('div').attr('id', 'sliders')
         d3.select('#sliders').append('div').attr('id', 'slider1')
