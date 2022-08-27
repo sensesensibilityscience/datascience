@@ -55,7 +55,7 @@ function drawSlider1(d3, slider, svg) {
             .default(.5)
             .on('onchange', val => {
                 prior = val
-                drawCircles(d3.select('#circles'))
+                drawCircles(d3, d3.select('#circles'))
                 legendText(d3, d3.select('#legend'))
             })
     )
@@ -72,7 +72,7 @@ function drawSlider2(d3, slider, svg) {
             .default(.5)
             .on('onchange', val => {
                 true_pos = val
-                drawCircles(d3.select('#circles'))
+                drawCircles(d3, d3.select('#circles'))
                 legendText(d3, d3.select('#legend'))
             })
     )
@@ -89,16 +89,15 @@ function drawSlider3(d3, slider, svg) {
             .default(.5)
             .on('onchange', val => {
                 true_neg = val
-                drawCircles(d3.select('#circles'))
+                drawCircles(d3, d3.select('#circles'))
                 legendText(d3, d3.select('#legend'))
             })
     )
 }
 
-function drawCircles(g) {
+function drawCircles(d3, g, transition=false) {
     let col_len = 25
     let d = 17
-    // https://samanthaz.me/writing/finding-the-right-color-palettes-for-data-visualizations
     let data = []
     for (let i = 0; i < total; i++) {
         let r = 6
@@ -121,25 +120,48 @@ function drawCircles(g) {
         }
         data[i] = [x, y, r, fill, stroke]
     }
-    g.selectAll('circle')
-        .data(data)
-        .join('circle')
-        .attr('cx', function(d, i) {
-            return d[0]
-        })
-        .attr('cy', function(d, i) {
-            return d[1]
-        })
-        .attr('r', function(d, i) {
-            return d[2]
-        })
-        .attr('fill', function(d, i) {
-            return d[3]
-        })
-        .attr('stroke', function(d, i) {
-            return d[4]
-        })
-        .attr('stroke-width', 2.2)
+    if (transition) {
+        g.selectAll('circle')
+            .data(data)
+            .join('circle')
+            .transition(d3.transition().duration(100).ease(d3.easeLinear))
+            .attr('cx', function(d, i) {
+                return d[0]
+            })
+            .attr('cy', function(d, i) {
+                return d[1]
+            })
+            .attr('r', function(d, i) {
+                return d[2]
+            })
+            .attr('fill', function(d, i) {
+                return d[3]
+            })
+            .attr('stroke', function(d, i) {
+                return d[4]
+            })
+            .attr('stroke-width', 2.2)
+    } else {
+        g.selectAll('circle')
+            .data(data)
+            .join('circle')
+            .attr('cx', function(d, i) {
+                return d[0]
+            })
+            .attr('cy', function(d, i) {
+                return d[1]
+            })
+            .attr('r', function(d, i) {
+                return d[2]
+            })
+            .attr('fill', function(d, i) {
+                return d[3]
+            })
+            .attr('stroke', function(d, i) {
+                return d[4]
+            })
+            .attr('stroke-width', 2.2)
+    }
 }
 
 function drawLegend(d3, g) {
@@ -252,7 +274,7 @@ function chooseResult(d3, g) {
                 d3.select('#neg_button').attr('stroke', 'none')
                 d3.select('#neg_button_text').attr('fill', '#777')
             }
-            drawCircles(d3.select('#circles'))
+            drawCircles(d3, d3.select('#circles'), true)
         }).on('mouseleave', function(d) {
             d3.select('#pos_button').attr('fill', '#f1f1f1')
             if (test_result != 1) {
@@ -293,7 +315,7 @@ function chooseResult(d3, g) {
                 test_result = 0
                 d3.select('#neg_button').attr('stroke', 'none')
             }
-            drawCircles(d3.select('#circles'))
+            drawCircles(d3, d3.select('#circles'), true)
         }).on('mouseleave', function(d) {
             d3.select('#neg_button').attr('fill', '#f1f1f1')
             if (test_result != -1) {
@@ -376,7 +398,7 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         d3.select('#graphic').append('svg').attr('width', graphic_width).attr('height', '600px')
         let g_circles = d3.select('#graphic svg').append('g').attr('id', 'circles')
         let g_legend = d3.select('#graphic svg').append('g').attr('id', 'legend')
-        drawCircles(g_circles)
+        drawCircles(d3, g_circles)
         drawLegend(d3, g_legend)
         legendText(d3, g_legend)
         chooseResult(d3, g_legend)
