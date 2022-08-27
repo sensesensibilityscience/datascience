@@ -1,5 +1,8 @@
 /*
 TODO
+# Add textbox to enter percentages
+# Add switch for test result
+# When switch is on "positive", make the negative circles dim
 # Escape quotes and apostrophes in input, test bugs
 # Add formulas
 */
@@ -35,10 +38,11 @@ var prior = 0.5
 var true_pos = 0.5
 var true_neg = 0.5
 var graphic_width = 850
-const pos_col = '#fadc64' // light yellow
-const neg_col = '#9fd5ce' // light blue
-const pos_stroke = '#e35d2e' // orange-red
-const neg_stroke = '#182574' // dark blue
+var test_result = 0 // 0: unset, 1: pos, -1: neg
+const pos_col = '#ffa600' // yellow orange
+const neg_col = '#003f5c' // dark blue
+const pos_col_dim = '#ffe4b3'
+const neg_col_dim = '#b3e7ff'
 
 function drawSlider1(d3, slider, svg) {
     let g = svg.append('g').attr('transform', 'translate(39, 20)')
@@ -97,21 +101,23 @@ function drawCircles(g) {
     // https://samanthaz.me/writing/finding-the-right-color-palettes-for-data-visualizations
     let data = []
     for (let i = 0; i < total; i++) {
-        let x
-        let y
         let r = 6
         let pos_neg_split = Math.round(total * prior)
-        let fill = (i < pos_neg_split) ? pos_col : neg_col
+        let is_pos = i < pos_neg_split
+        let is_test_pos = is_pos ? i < Math.round(total * prior * true_pos) : i >= pos_neg_split + Math.round(total * (1-prior) * true_neg)
+        let x = is_pos ? ((i / col_len) >> 0) * d + 20 : graphic_width - 20 - (((i - pos_neg_split) / col_len) >> 0) * d
+        let y = is_pos ? (i % col_len) * d + 20 : ((i - pos_neg_split) % col_len * d + 20)
+        let fill
         let stroke
-        if (i < pos_neg_split) {
-            x = ((i / col_len) >> 0) * d + 20
-            y = (i % col_len) * d + 20
-            stroke = (i < Math.round(total * prior * true_pos)) ? pos_stroke : neg_stroke
-        } else {
-            let i2 = i - pos_neg_split
-            x = graphic_width - 20 - ((i2 / col_len) >> 0) * d
-            y = (i2 % col_len * d + 20)
-            stroke = (i < pos_neg_split + Math.round(total * (1-prior) * true_neg)) ? neg_stroke : pos_stroke
+        if (test_result == 0) {
+            fill = is_pos ? pos_col : neg_col
+            stroke = is_test_pos ? pos_col : neg_col
+        } else if (test_result == 1) {
+            fill = is_pos ? (is_test_pos ? pos_col : pos_col_dim) : (is_test_pos ? neg_col : neg_col_dim)
+            stroke = is_test_pos ? pos_col : neg_col_dim
+        } else if (test_result == -1) {
+            fill = is_pos ? (is_test_pos ? pos_col_dim : pos_col) : (is_test_pos ? neg_col_dim : neg_col)
+            stroke = is_test_pos ? pos_col_dim : neg_col
         }
         data[i] = [x, y, r, fill, stroke]
     }
@@ -151,28 +157,28 @@ function drawLegend(d3, g) {
         .attr('cy', y)
         .attr('r', r)
         .attr('fill', pos_col)
-        .attr('stroke', pos_stroke)
+        .attr('stroke', pos_col)
         .attr('stroke-width', stroke_width)
     g.append('circle')
         .attr('cx', 250)
         .attr('cy', y)
         .attr('r', r)
         .attr('fill', pos_col)
-        .attr('stroke', neg_stroke)
+        .attr('stroke', neg_col)
         .attr('stroke-width', stroke_width)
     g.append('circle')
         .attr('cx', 450)
         .attr('cy', y)
         .attr('r', r)
         .attr('fill', neg_col)
-        .attr('stroke', pos_stroke)
+        .attr('stroke', pos_col)
         .attr('stroke-width', stroke_width)
     g.append('circle')
         .attr('cx', 650)
         .attr('cy', y)
         .attr('r', r)
         .attr('fill', neg_col)
-        .attr('stroke', neg_stroke)
+        .attr('stroke', neg_col)
         .attr('stroke-width', stroke_width)
 }
 
@@ -191,8 +197,8 @@ function legendText(d3, g) {
         ['false_neg_text', 265, y, d3.format('.0f')(total * prior * (1-true_pos)) + ' false negative(s)'],
         ['false_pos_text', 465, y, d3.format('.0f')(total * (1-prior) * (1-true_neg)) + ' false positive(s)'],
         ['true_neg_text', 665, y, d3.format('.0f')(total * (1-prior) * true_neg) + ' true negative(s)'],
-        ['PPV', 230, y+34, d3.format('.1%')(ppv()) + ' of those who tested positive are true positives'],
-        ['NPV', 230, y+58, d3.format('.1%')(npv()) + ' of those who tested negatives are true negatives']
+        // ['PPV', 230, y+34, d3.format('.1%')(ppv()) + ' of those who tested positive are true positives'],
+        // ['NPV', 230, y+58, d3.format('.1%')(npv()) + ' of those who tested negatives are true negatives']
     ]
     g.selectAll('.legend_text')
         .data(data)
@@ -211,6 +217,96 @@ function legendText(d3, g) {
             return d[3]
         })
     g.select()
+}
+
+function chooseResult(d3, g) {
+    let x = 400
+    let y = 540
+    g.append('text')
+        .text('Actual test result:')
+        .attr('x', x-150)
+        .attr('y', y)
+    g.append('rect')
+        .attr('id', 'pos_button')
+        .attr('x', x-12)
+        .attr('y', y-18)
+        .attr('width', 80)
+        .attr('height', 25)
+        .attr('rx', 5)
+        .attr('ry', 5)
+        .attr('fill', '#f1f1f1')
+        .attr('stroke-width', 2.5)
+        .on('mouseover', function(d) {
+            d3.select('#pos_button').attr('fill', pos_col_dim)
+            d3.select('#pos_button_text').attr('fill', '#000')
+        }).on('mousedown', function() {
+            if (test_result == 1) {
+                test_result = 0
+                d3.select('#pos_button').attr('stroke', 'none')
+            } else if (test_result == 0) {
+                test_result = 1
+                d3.select('#pos_button').attr('stroke', pos_col)
+            } else if (test_result == -1) {
+                test_result = 1
+                d3.select('#pos_button').attr('stroke', pos_col)
+                d3.select('#neg_button').attr('stroke', 'none')
+                d3.select('#neg_button_text').attr('fill', '#777')
+            }
+            drawCircles(d3.select('#circles'))
+        }).on('mouseleave', function(d) {
+            d3.select('#pos_button').attr('fill', '#f1f1f1')
+            if (test_result != 1) {
+                d3.select('#pos_button_text').attr('fill', '#777')
+            }
+        })
+    g.append('text')
+        .attr('id', 'pos_button_text')
+        .text('Positive')
+        .attr('x', x)
+        .attr('y', y)
+        .attr('pointer-events', 'none')
+        .attr('fill', '#777')
+    x = 490
+    g.append('rect')
+        .attr('id', 'neg_button')
+        .attr('x', x-9)
+        .attr('y', y-18)
+        .attr('width', 80)
+        .attr('height', 25)
+        .attr('rx', 5)
+        .attr('ry', 5)
+        .attr('fill', '#f1f1f1')
+        .attr('stroke-width', 2.5)
+        .on('mouseover', function(d) {
+            d3.select('#neg_button').attr('fill', neg_col_dim)
+            d3.select('#neg_button_text').attr('fill', '#000')
+        }).on('mousedown', function() {
+            if (test_result == 1) {
+                test_result = -1
+                d3.select('#neg_button').attr('stroke', neg_col)
+                d3.select('#pos_button').attr('stroke', 'none')
+                d3.select('#pos_button_text').attr('fill', '#777')
+            } else if (test_result == 0) {
+                test_result = -1
+                d3.select('#neg_button').attr('stroke', neg_col)
+            } else if (test_result == -1) {
+                test_result = 0
+                d3.select('#neg_button').attr('stroke', 'none')
+            }
+            drawCircles(d3.select('#circles'))
+        }).on('mouseleave', function(d) {
+            d3.select('#neg_button').attr('fill', '#f1f1f1')
+            if (test_result != -1) {
+                d3.select('#neg_button_text').attr('fill', '#777')
+            }
+        })
+    g.append('text')
+        .attr('id', 'neg_button_text')
+        .text('Negative')
+        .attr('x', x)
+        .attr('y', y)
+        .attr('pointer-events', 'none')
+        .attr('fill', '#777')
 }
 
 function onInput(d3) {
@@ -264,7 +360,7 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         d3.select('#sliders').append('div').attr('id', 'slider2')
         d3.select('#sliders').append('div').attr('id', 'slider3')
         let sl1 = d3.select('#slider1').append('span').attr('class', 'slider_label').text('Prior probability')
-        makeTooltip(d3, container, sl1, (e) => {return 'Without performing any further tests, what is the prior probability that ' + e.statement + '?'})
+        makeTooltip(d3, container, sl1, (e) => {return 'Before performing any tests, what is the prior probability that ' + e.statement + '?'})
         let sl2 = d3.select('#slider2').append('span').attr('class', 'slider_label').text('True positive rate')
         makeTooltip(d3, container, sl2, (e) => {return 'If ' + e.statement + ', how likely would the ' + e.test + ' correctly turn up positive?'})
         let sl3 = d3.select('#slider3').append('span').attr('class', 'slider_label').text('True negative rate')
@@ -283,10 +379,11 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         drawCircles(g_circles)
         drawLegend(d3, g_legend)
         legendText(d3, g_legend)
-        let ppv_text = d3.select('#PPV')
-        makeTooltip(d3, container, ppv_text, (e) => {return 'Given that the ' + e.test + ' came back positive, the probability that ' + e.statement + ' is ' + d3.format('.1%')(ppv()) + '.'})
-        let npv_text = d3.select('#NPV')
-        makeTooltip(d3, container, npv_text, (e) => {return 'Given that the ' + e.test + ' came back negative, the probability that ' + e.statement_neg + ' is ' + d3.format('.1%')(npv()) + '.'})
+        chooseResult(d3, g_legend)
+        // let ppv_text = d3.select('#PPV')
+        // makeTooltip(d3, container, ppv_text, (e) => {return 'Given that the ' + e.test + ' came back positive, the probability that ' + e.statement + ' is ' + d3.format('.1%')(ppv()) + '.'})
+        // let npv_text = d3.select('#NPV')
+        // makeTooltip(d3, container, npv_text, (e) => {return 'Given that the ' + e.test + ' came back negative, the probability that ' + e.statement_neg + ' is ' + d3.format('.1%')(npv()) + '.'})
     }
     return draw
 })
