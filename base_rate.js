@@ -215,13 +215,24 @@ function npv() {
 function legendText(d3, g) {
     let y = 506
     let data = [
-        ['true_pos_text', 65, y, d3.format('.0f')(total * prior * true_pos) + ' true positive(s)'],
-        ['false_neg_text', 265, y, d3.format('.0f')(total * prior * (1-true_pos)) + ' false negative(s)'],
-        ['false_pos_text', 465, y, d3.format('.0f')(total * (1-prior) * (1-true_neg)) + ' false positive(s)'],
-        ['true_neg_text', 665, y, d3.format('.0f')(total * (1-prior) * true_neg) + ' true negative(s)'],
-        // ['PPV', 230, y+34, d3.format('.1%')(ppv()) + ' of those who tested positive are true positives'],
-        // ['NPV', 230, y+58, d3.format('.1%')(npv()) + ' of those who tested negatives are true negatives']
+        ['true_pos_text', 65, y, d3.format('.0f')(total * prior * true_pos) + ' true positive(s)', 1],
+        ['false_neg_text', 265, y, d3.format('.0f')(total * prior * (1-true_pos)) + ' false negative(s)', 1],
+        ['false_pos_text', 465, y, d3.format('.0f')(total * (1-prior) * (1-true_neg)) + ' false positive(s)', 1],
+        ['true_neg_text', 665, y, d3.format('.0f')(total * (1-prior) * true_neg) + ' true negative(s)', 1],
     ]
+    let ppv_npv = ['ppv_npv', 230, y+64, '', 0]
+    if (test_result == 1) {
+        ppv_npv[3] = d3.format('.1%')(ppv()) + ' of those who tested positive are true positives'
+        ppv_npv[4] = 1
+    } else if (test_result == -1) {
+        ppv_npv[3] = d3.format('.1%')(npv()) + ' of those who tested negative are true negatives'
+        ppv_npv[4] = 1
+    } else {
+        if (!d3.select('#ppv_npv').empty()) {
+            ppv_npv[3] = d3.select('#ppv_npv').text()
+        }
+    }
+    data.push(ppv_npv)
     g.selectAll('.legend_text')
         .data(data)
         .join('text')
@@ -238,7 +249,10 @@ function legendText(d3, g) {
         .text(function(d, i) {
             return d[3]
         })
-    g.select()
+        .transition(d3.transition().duration(100).ease(d3.easeLinear))
+        .style('opacity', function(d, i) {
+            return d[4]
+        })
 }
 
 function chooseResult(d3, g) {
@@ -275,6 +289,7 @@ function chooseResult(d3, g) {
                 d3.select('#neg_button_text').attr('fill', '#777')
             }
             drawCircles(d3, d3.select('#circles'), true)
+            legendText(d3, d3.select('#legend'))
         }).on('mouseleave', function(d) {
             d3.select('#pos_button').attr('fill', '#f1f1f1')
             if (test_result != 1) {
@@ -316,6 +331,7 @@ function chooseResult(d3, g) {
                 d3.select('#neg_button').attr('stroke', 'none')
             }
             drawCircles(d3, d3.select('#circles'), true)
+            legendText(d3, d3.select('#legend'))
         }).on('mouseleave', function(d) {
             d3.select('#neg_button').attr('fill', '#f1f1f1')
             if (test_result != -1) {
@@ -341,12 +357,13 @@ function onInput(d3) {
 function makeTooltip(d3, container, element, f) {
     element
         .on('mouseover', function(d) {
-            // d3.select(container).append('div').attr('id', 'my_tooltip')
             d3.json('base_rate.json').then(function(e) {
                 let t = f(e)
-                d3.select('#my_tooltip').text(t)
-                    .transition(d3.transition().duration(100).ease(d3.easeLinear))
-                    .style('opacity', 1)
+                if (t != '') {
+                    d3.select('#my_tooltip').text(t)
+                        .transition(d3.transition().duration(100).ease(d3.easeLinear))
+                        .style('opacity', 1)
+                }
             })
         }).on('mousemove', function(d) {
             d3.select('#my_tooltip')
@@ -402,10 +419,16 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         drawLegend(d3, g_legend)
         legendText(d3, g_legend)
         chooseResult(d3, g_legend)
-        // let ppv_text = d3.select('#PPV')
-        // makeTooltip(d3, container, ppv_text, (e) => {return 'Given that the ' + e.test + ' came back positive, the probability that ' + e.statement + ' is ' + d3.format('.1%')(ppv()) + '.'})
-        // let npv_text = d3.select('#NPV')
-        // makeTooltip(d3, container, npv_text, (e) => {return 'Given that the ' + e.test + ' came back negative, the probability that ' + e.statement_neg + ' is ' + d3.format('.1%')(npv()) + '.'})
+        let ppv_npv_text = d3.select('#ppv_npv')
+        makeTooltip(d3, container, ppv_npv_text, (e) => {
+            if (test_result == 1) {
+                return 'Given that the ' + e.test + ' came back positive, the probability that ' + e.statement + ' is ' + d3.format('.1%')(ppv()) + '.'
+            } else if (test_result == -1) {
+                return 'Given that the ' + e.test + ' came back negative, the probability that ' + e.statement_neg + ' is ' + d3.format('.1%')(npv()) + '.'
+            } else {
+                return ''
+            }
+        })
     }
     return draw
 })
