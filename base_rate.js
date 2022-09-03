@@ -54,7 +54,7 @@ function drawSlider1(d3, slider, svg) {
             .tickValues([0, 0.25, 0.5, 0.75, 1])
             .default(.5)
             .on('onchange', val => {
-                prior = val
+                true_pos = val
                 drawCircles(d3, d3.select('#circles'))
                 legendText(d3, d3.select('#legend'))
             })
@@ -71,7 +71,7 @@ function drawSlider2(d3, slider, svg) {
             .tickValues([0, 0.25, 0.5, 0.75, 1])
             .default(.5)
             .on('onchange', val => {
-                true_pos = val
+                prior = val
                 drawCircles(d3, d3.select('#circles'))
                 legendText(d3, d3.select('#legend'))
             })
@@ -214,18 +214,24 @@ function npv() {
 
 function legendText(d3, g) {
     let y = 506
+    let a = Math.round(total * prior * true_pos)
+    let b = Math.round(total * prior * (1-true_pos))
+    let c = Math.round(total * (1-prior) * (1-true_neg))
+    let d = Math.round(total * (1-prior) * true_neg)
     let data = [
-        ['true_pos_text', 65, y, d3.format('.0f')(total * prior * true_pos) + ' true positive(s)', 1],
-        ['false_neg_text', 265, y, d3.format('.0f')(total * prior * (1-true_pos)) + ' false negative(s)', 1],
-        ['false_pos_text', 465, y, d3.format('.0f')(total * (1-prior) * (1-true_neg)) + ' false positive(s)', 1],
-        ['true_neg_text', 665, y, d3.format('.0f')(total * (1-prior) * true_neg) + ' true negative(s)', 1],
+        ['true_pos_text', 65, y, a + ((a == 1) ? ' true positive' : ' true positives'), 1],
+        ['false_neg_text', 265, y, b + ((b == 1) ? ' false negative' : ' false negatives'), 1],
+        ['false_pos_text', 465, y, c + ((c == 1) ? ' false positive' : ' false positives'), 1],
+        ['true_neg_text', 665, y, d + ((d == 1) ? ' true negative' : ' true negatives'), 1],
     ]
     let ppv_npv = ['ppv_npv', 230, y+64, '', 0]
     if (test_result == 1) {
-        ppv_npv[3] = d3.format('.1%')(ppv()) + ' of those who tested positive are true positives'
+        let val = ppv()
+        ppv_npv[3] = isNaN(val) ? 'Nothing tested positive!' : d3.format('.1%')(ppv()) + ' of those who tested positive are true positives'
         ppv_npv[4] = 1
     } else if (test_result == -1) {
-        ppv_npv[3] = d3.format('.1%')(npv()) + ' of those who tested negative are true negatives'
+        let val = npv()
+        ppv_npv[3] = isNaN(val) ? 'Nothing tested negative!' : d3.format('.1%')(npv()) + ' of those who tested negative are true negatives'
         ppv_npv[4] = 1
     } else {
         if (!d3.select('#ppv_npv').empty()) {
@@ -398,10 +404,11 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         d3.select('#sliders').append('div').attr('id', 'slider1')
         d3.select('#sliders').append('div').attr('id', 'slider2')
         d3.select('#sliders').append('div').attr('id', 'slider3')
-        let sl1 = d3.select('#slider1').append('span').attr('class', 'slider_label').text('Prior probability')
-        makeTooltip(d3, container, sl1, (e) => {return 'Before performing any tests, what is the prior probability that ' + e.statement + '?'})
-        let sl2 = d3.select('#slider2').append('span').attr('class', 'slider_label').text('True positive rate')
-        makeTooltip(d3, container, sl2, (e) => {return 'If ' + e.statement + ', how likely would the ' + e.test + ' correctly turn up positive?'})
+        // d3.select('#slider1').append('input').attr('type', 'number').attr('step', 0.01)
+        let sl1 = d3.select('#slider1').append('span').attr('class', 'slider_label').text('True positive rate')
+        makeTooltip(d3, container, sl1, (e) => {return 'If ' + e.statement + ', how likely would the ' + e.test + ' correctly turn up positive?'})
+        let sl2 = d3.select('#slider2').append('span').attr('class', 'slider_label').text('Prior probability')
+        makeTooltip(d3, container, sl2, (e) => {return 'Before performing any tests, what is the prior probability that ' + e.statement + '?'})
         let sl3 = d3.select('#slider3').append('span').attr('class', 'slider_label').text('True negative rate')
         makeTooltip(d3, container, sl3, (e) => {return 'If ' + e.statement_neg + ', how likely would the ' + e.test + ' correctly turn up negative?'})
         let svg_slider1 = d3.select('#slider1').append('svg').attr('width', '280px').attr('height', '70px')

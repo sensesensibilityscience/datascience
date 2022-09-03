@@ -14,7 +14,7 @@ TODO
 '''
 
 # load English language model (large size)
-nlp = spacy.load('en_core_web_lg')
+nlp = spacy.load('en_core_web_md')
 
 def getInfo(text):
     '''
