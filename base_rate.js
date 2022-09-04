@@ -88,7 +88,7 @@ function drawSlider3(d3, slider, svg) {
             .tickValues([0, 0.25, 0.5, 0.75, 1])
             .default(.5)
             .on('onchange', val => {
-                true_neg = val
+                true_neg = 1 - val
                 drawCircles(d3, d3.select('#circles'))
                 legendText(d3, d3.select('#legend'))
             })
@@ -409,8 +409,8 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         makeTooltip(d3, container, sl1, (e) => {return 'If ' + e.statement + ', how likely would the ' + e.test + ' correctly turn up positive?'})
         let sl2 = d3.select('#slider2').append('span').attr('class', 'slider_label').text('Prior probability')
         makeTooltip(d3, container, sl2, (e) => {return 'Before performing any tests, what is the prior probability that ' + e.statement + '?'})
-        let sl3 = d3.select('#slider3').append('span').attr('class', 'slider_label').text('True negative rate')
-        makeTooltip(d3, container, sl3, (e) => {return 'If ' + e.statement_neg + ', how likely would the ' + e.test + ' correctly turn up negative?'})
+        let sl3 = d3.select('#slider3').append('span').attr('class', 'slider_label').text('False positive rate')
+        makeTooltip(d3, container, sl3, (e) => {return 'If ' + e.statement_neg + ', how likely would the ' + e.test + ' incorrectly turn up positive?'})
         let svg_slider1 = d3.select('#slider1').append('svg').attr('width', '280px').attr('height', '70px')
         drawSlider1(d3, slider, svg_slider1)
         let svg_slider2 = d3.select('#slider2').append('svg').attr('width', '280px').attr('height', '70px')
