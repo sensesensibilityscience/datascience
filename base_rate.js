@@ -46,9 +46,9 @@ const neg_col_dim = '#b3e7ff'
 
 function drawSlider1(d3, slider, svg) {
     let g = svg.append('g').attr('transform', 'translate(39, 20)')
+    let s = slider.sliderBottom()
     g.call(
-        slider.sliderBottom()
-            .min(0).max(1)
+        s.min(0).max(1)
             .width(200)
             .tickFormat(d3.format('.1%'))
             .tickValues([0, 0.25, 0.5, 0.75, 1])
@@ -57,15 +57,17 @@ function drawSlider1(d3, slider, svg) {
                 true_pos = val
                 drawCircles(d3, d3.select('#circles'))
                 legendText(d3, d3.select('#legend'))
+                d3.select('#input1').property('value', d3.format('.1f')(val * 100))
             })
     )
+    return s
 }
 
 function drawSlider2(d3, slider, svg) {
     let g = svg.append('g').attr('transform', 'translate(39, 20)')
+    let s = slider.sliderBottom()
     g.call(
-        slider.sliderBottom()
-            .min(0).max(1)
+        s.min(0).max(1)
             .width(200)
             .tickFormat(d3.format('.1%'))
             .tickValues([0, 0.25, 0.5, 0.75, 1])
@@ -74,15 +76,17 @@ function drawSlider2(d3, slider, svg) {
                 prior = val
                 drawCircles(d3, d3.select('#circles'))
                 legendText(d3, d3.select('#legend'))
+                d3.select('#input2').property('value', d3.format('.1f')(val * 100))
             })
     )
+    return s
 }
 
 function drawSlider3(d3, slider, svg) {
     let g = svg.append('g').attr('transform', 'translate(39, 20)')
+    let s = slider.sliderBottom()
     g.call(
-        slider.sliderBottom()
-            .min(0).max(1)
+        s.min(0).max(1)
             .width(200)
             .tickFormat(d3.format('.1%'))
             .tickValues([0, 0.25, 0.5, 0.75, 1])
@@ -91,8 +95,10 @@ function drawSlider3(d3, slider, svg) {
                 true_neg = 1 - val
                 drawCircles(d3, d3.select('#circles'))
                 legendText(d3, d3.select('#legend'))
+                d3.select('#input3').property('value', d3.format('.1f')(val * 100))
             })
     )
+    return s
 }
 
 function drawCircles(d3, g, transition=false) {
@@ -382,6 +388,10 @@ function makeTooltip(d3, container, element, f) {
         })
 }
 
+function validatePercentage(val) {
+    return /^(100|(\d|\d\d)(|\.\d*))$/.test(val)
+}
+
 require.undef('viz')
 define('viz', ['d3', 'slider'], function(d3, slider) {
     function draw(container) {
@@ -404,19 +414,75 @@ define('viz', ['d3', 'slider'], function(d3, slider) {
         d3.select('#sliders').append('div').attr('id', 'slider1')
         d3.select('#sliders').append('div').attr('id', 'slider2')
         d3.select('#sliders').append('div').attr('id', 'slider3')
-        // d3.select('#slider1').append('input').attr('type', 'number').attr('step', 0.01)
-        let sl1 = d3.select('#slider1').append('span').attr('class', 'slider_label').text('True positive rate')
+        let sl1 = d3.select('#slider1').append('span').attr('class', 'slider_label').text('True positive rate:')
+        let s1_input = d3.select('#slider1').append('input')
+            .attr('id', 'input1')
+            .attr('class', 'pc_input')
+            .attr('type', 'number')
+            .attr('step', 0.1)
+            .attr('value', true_pos * 100)
+        d3.select('#slider1').append('span').attr('class', 'slider_label').text('%')
         makeTooltip(d3, container, sl1, (e) => {return 'If ' + e.statement + ', how likely would the ' + e.test + ' correctly turn up positive?'})
-        let sl2 = d3.select('#slider2').append('span').attr('class', 'slider_label').text('Prior probability')
+        let sl2 = d3.select('#slider2').append('span').attr('class', 'slider_label').text('Prior probability:')
+        let s2_input = d3.select('#slider2').append('input')
+            .attr('id', 'input2')
+            .attr('class', 'pc_input')
+            .attr('type', 'number')
+            .attr('step', 0.1)
+            .attr('value', prior * 100)
+        d3.select('#slider2').append('span').attr('class', 'slider_label').text('%')
         makeTooltip(d3, container, sl2, (e) => {return 'Before performing any tests, what is the prior probability that ' + e.statement + '?'})
-        let sl3 = d3.select('#slider3').append('span').attr('class', 'slider_label').text('False positive rate')
+        let sl3 = d3.select('#slider3').append('span').attr('class', 'slider_label').text('False positive rate:')
+        let s3_input = d3.select('#slider3').append('input')
+            .attr('id', 'input3')
+            .attr('class', 'pc_input')
+            .attr('type', 'number')
+            .attr('step', 0.1)
+            .attr('value', (1 - true_neg) * 100)
+        d3.select('#slider3').append('span').attr('class', 'slider_label').text('%')
         makeTooltip(d3, container, sl3, (e) => {return 'If ' + e.statement_neg + ', how likely would the ' + e.test + ' incorrectly turn up positive?'})
         let svg_slider1 = d3.select('#slider1').append('svg').attr('width', '280px').attr('height', '70px')
-        drawSlider1(d3, slider, svg_slider1)
+        let s1 = drawSlider1(d3, slider, svg_slider1)
+        s1_input.on('input', function() {
+            let val = document.getElementById('input1').value
+            if (validatePercentage(val)) {
+                true_pos = String(val / 100)
+                s1.silentValue(val / 100)
+                drawCircles(d3, d3.select('#circles'))
+                legendText(d3, d3.select('#legend'))
+                d3.select('#input1').transition(d3.transition().duration(100).ease(d3.easeLinear)).style('background-color', '#fff')
+            } else {
+                d3.select('#input1').transition(d3.transition().duration(100).ease(d3.easeLinear)).style('background-color', '#ffcdd2')
+            }
+        })
         let svg_slider2 = d3.select('#slider2').append('svg').attr('width', '280px').attr('height', '70px')
-        drawSlider2(d3, slider, svg_slider2)
+        let s2 = drawSlider2(d3, slider, svg_slider2)
+        s2_input.on('input', function() {
+            let val = document.getElementById('input2').value
+            if (validatePercentage(val)) {
+                prior = String(val / 100)
+                s2.silentValue(val / 100)
+                drawCircles(d3, d3.select('#circles'))
+                legendText(d3, d3.select('#legend'))
+                d3.select('#input2').transition(d3.transition().duration(100).ease(d3.easeLinear)).style('background-color', '#fff')
+            } else {
+                d3.select('#input2').transition(d3.transition().duration(100).ease(d3.easeLinear)).style('background-color', '#ffcdd2')
+            }
+        })
         let svg_slider3 = d3.select('#slider3').append('svg').attr('width', '280px').attr('height', '70px')
-        drawSlider3(d3, slider, svg_slider3)
+        let s3 = drawSlider3(d3, slider, svg_slider3)
+        s3_input.on('input', function() {
+            let val = document.getElementById('input3').value
+            if (validatePercentage(val)) {
+                true_neg = 1 - String(val / 100)
+                s3.silentValue(val / 100)
+                drawCircles(d3, d3.select('#circles'))
+                legendText(d3, d3.select('#legend'))
+                d3.select('#input3').transition(d3.transition().duration(100).ease(d3.easeLinear)).style('background-color', '#fff')
+            } else {
+                d3.select('#input3').transition(d3.transition().duration(100).ease(d3.easeLinear)).style('background-color', '#ffcdd2')
+            }
+        })
 
         d3.select(container).append('div').attr('id', 'graphic')
         d3.select('#graphic').append('svg').attr('width', graphic_width).attr('height', '600px')
