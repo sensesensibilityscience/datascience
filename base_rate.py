@@ -13,7 +13,90 @@ TODO
 * Add option to display equations or not
 '''
 
-# load English language model (large size)
+style_html = '''<style>
+#questions {
+    height: 80px;
+}
+
+#sliders {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+    height: 90px;
+    text-align: center;
+}
+
+#slider1 {
+    flex: 33.33%;
+}
+
+#slider2 {
+    flex: 33.33%;
+}
+
+#slider3 {
+    flex: 33.33%;
+}
+
+.slider_label {
+    font-size: 14pt;
+}
+
+#graphic {
+    width: 100%;
+    text-align: center;
+    font-size: 12pt;
+}
+
+.legend_text {
+    text-align: left;
+}
+
+#my_tooltip {
+    position: absolute;
+    width: 240px;
+    opacity: 0;
+    background-color: #386fb0;
+    color: #fffffb;
+    border-radius: 5px;
+    padding: 12px;
+    box-shadow: 3px 3px 2px #ddd;
+    text-align: center;
+    pointer-events: none;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.pc_input {
+    border: none;
+    display: inline;
+    font-family: inherit;
+    font-size: 14pt;
+    padding: none;
+    width: 45px;
+    margin-left: 5px;
+    text-align: right;
+}
+</style>'''
+
+js = """
+ (function(element){
+     require(['viz'], function(viz) {
+          viz(element.get(0))
+     });
+ })(element);
+ """
+
+# load English language model (mid size)
 nlp = spacy.load('en_core_web_md')
 
 def getInfo(text):
