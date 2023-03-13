@@ -88,14 +88,6 @@ input[type=number] {
 }
 </style>'''
 
-js = """
- (function(element){
-     require(['viz'], function(viz) {
-          viz(element.get(0))
-     });
- })(element);
- """
-
 # load English language model (mid size)
 nlp = spacy.load('en_core_web_md')
 
