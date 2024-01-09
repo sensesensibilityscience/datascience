@@ -1,5 +1,5 @@
 .ipynb_checkpoints
 __pycache__
 .DS_Store
-base_rate.js
 base_rate.json
+heart_rate/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.3/*
