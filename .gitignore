@@ -2,4 +2,5 @@
 __pycache__
 .DS_Store
 base_rate.json
-2024/heart_rate/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.3/*2024/berkeley.csv
+2024/heart_rate/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.3/
+2024/admission_rate/berkeley.csv
