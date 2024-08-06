@@ -14,7 +14,7 @@ def hued_barplot_with_error(df, x, y, hue, error):
     majors = df[x].unique()
     bar_positions = np.arange(len(majors))
 
-    colors = ['royalblue', 'darkorange']
+    colors = ['tab:blue', 'tab:orange']
 
     for i, gender in enumerate(df[hue].unique()):
         gender_data = df[df[hue] == gender]
@@ -41,11 +41,11 @@ def plot_admissions(df, x, hue, y1, y2):
     bar_positions = np.arange(len(majors))
 
     female_data = df[df[hue] == 'F']
-    ax.bar(bar_positions - (bar_width + space)/2, female_data[y2], bar_width, label=f"{y2} (F)", color='royalblue')
+    ax.bar(bar_positions - (bar_width + space)/2, female_data[y2], bar_width, label=f"{y2} (F)", color='tab:blue')
     ax.bar(bar_positions - (bar_width + space)/2, female_data[y1], bar_width, label=f"{y1} (F)", color='grey', bottom=female_data[y2])
 
     male_data = df[df[hue] == 'M']
-    ax.bar(bar_positions + (bar_width + space)/2, male_data[y2], bar_width, label=f"{y2} (M)", color='darkorange')
+    ax.bar(bar_positions + (bar_width + space)/2, male_data[y2], bar_width, label=f"{y2} (M)", color='tab:orange')
     ax.bar(bar_positions + (bar_width + space)/2, male_data[y1], bar_width, label=f"{y1} (M)", color='grey', bottom=male_data[y2])
 
     ax.set_xlabel('Major')
