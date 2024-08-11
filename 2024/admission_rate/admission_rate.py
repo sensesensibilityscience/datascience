@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# THE BELOW PLOTTING FORMULAS ARE USEFUL FOR PART 2
+### THE BELOW PLOTTING FORMULAS ARE USEFUL FOR PART 2 ###
 
 # Useful for q1.4
 def hued_barplot_with_error(df, x, y, hue, error, title):
@@ -31,7 +31,7 @@ def hued_barplot_with_error(df, x, y, hue, error, title):
     plt.show()
 
 # Useful for q1.8
-def stacked_barplot_with_hue(df, x, hue, y1, y2, title):
+def stacked_barplot_with_hue(df, x, y1, y2, hue, title):
     fig, ax = plt.subplots(figsize=(14, 8))
 
     bar_width = 0.35
