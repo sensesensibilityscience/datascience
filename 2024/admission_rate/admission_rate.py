@@ -1,7 +1,39 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
+import ipywidgets as widgets
+from IPython import display
+from matplotlib.ticker import AutoMinorLocator
+# import seaborn as sns
+
+def plotMockAdmission(output, ax, n_adm, n_app_F, n_app_M):
+    def f(b):
+        with output:
+            applicants = [0] * n_app_F + [1] * n_app_M
+            admitted = np.random.choice(applicants, size=n_adm, replace=True)
+            n_adm_M = np.sum(admitted)
+            n_adm_F = n_adm - n_adm_M
+            ax.clear()
+            ax.bar(['Female', 'Male'], [n_adm_F/n_app_F, n_adm_M/n_app_M])
+            ax.set_ylabel('Acceptance rate within gender')
+            ax.set_ylim(0, 100)
+            ax.set_title(f'Admitting {n_adm} random students\nout of {n_app_F} female\nand {n_app_M} male applicants')
+            ax.yaxis.set_minor_locator(AutoMinorLocator(10))
+            ax.tick_params(which='both')
+    return f
+
+def plotMockAdmissionWithButton():
+    fig, ax = plt.subplots(figsize=(4, 6))
+    plt.gcf().subplots_adjust(left=0.2)
+    b = widgets.Button(
+        description='Randomly admit students!',
+        disabled=False,
+        tooltip='Randomly admit students!',
+        layout={'width': '200px'}
+    )
+    output = widgets.Output()
+    b.on_click(plotMockAdmission(output, ax, 5232, 4321, 8442))    
+    display.display(b, output)
 
 ### THE BELOW PLOTTING FORMULAS ARE USEFUL FOR PART 2 ###
 
