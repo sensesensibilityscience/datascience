@@ -393,6 +393,7 @@ def plot_tilted_cosine_ci(deviation):
     plt.show()
 
 def plot_tilted_band():
+    ouput = widgets.Output() # see admission notebook for how to do
     deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
     interact(plot_tilted_cosine_ci, deviation=deviation_slider)
 
