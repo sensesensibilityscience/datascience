@@ -5,6 +5,7 @@ import warnings
 import matplotlib.pyplot as plt
 import plotly.express as px
 from scipy.optimize import curve_fit
+import mplcursors
 
 excessdeaths = pd.read_csv("weekly_counts_of_deaths_cleaned.csv")
 excessdeaths['Week Ending Date'] = pd.to_datetime(excessdeaths['Week Ending Date'])    
@@ -288,7 +289,10 @@ from ipywidgets import interact
 
 
 def plot_lin_band():
-    def plot_lin_ci(deviation):
+    deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
+    interact(plot_lin_ci, deviation=deviation_slider)
+    
+def plot_lin_ci(deviation):
         popt, _ = curve_fit(linear_model, xdata, ydata)
         m_fit, c_fit = popt
         
@@ -316,33 +320,44 @@ def plot_lin_band():
         plt.legend()
         plt.grid(True)
         plt.show()
+        
+        
 
-    deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
-    interact(plot_lin_ci, deviation=deviation_slider)
-
-def plot_lin_all():
+def plot_lin_all(deviation):
     plt.figure(figsize=(10, 6))
     # plt.scatter(all_xdata, all_ydata, color='blue', s=10)
 
     residuals = np.abs(all_ydata - y_fit)
-    confidence_interval = np.percentile(residuals, 90)
-    all_data_linear_fit = [m_fit, c_fit]
+#     confidence_interval = np.percentile(residuals, 90)
+#     all_data_linear_fit = [m_fit, c_fit]
 
-    inside_band = residuals <= confidence_interval
-    outside_band = residuals > confidence_interval
+    inside_band = residuals <= deviation
+    outside_band = residuals > deviation
         
-    lower_bound = y_fit - confidence_interval
-    upper_bound = y_fit + confidence_interval
+    lower_bound = y_fit - deviation
+    upper_bound = y_fit + deviation
+    
+    percent_within_band = int(np.sum(inside_band) / len(all_xdata) * 100)
+
 
     plt.plot(all_xdata, y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.2f})', color='black')
-    plt.scatter(all_xdata[inside_band], all_ydata[inside_band], color='blue', label='Within band', s=10)
-    plt.scatter(all_xdata[outside_band], all_ydata[outside_band], color='red', label='Outside band', s=20)
+#     plt.scatter(all_xdata[inside_band], all_ydata[inside_band], color='blue', label='Within band', s=10)
+#     plt.scatter(all_xdata[outside_band], all_ydata[outside_band], color='red', label='Outside band', s=20)
+
+    scatter_inside = plt.scatter(all_xdata[inside_band], all_ydata[inside_band], color='blue', label='Within band', s=10)
+    scatter_outside = plt.scatter(all_xdata[outside_band], all_ydata[outside_band], color='red', label='Outside band', s=20)
+    
+    # Fill the deviation band area
     plt.xlabel('time (units unknown)')
     plt.ylabel('value')
+    plt.fill_between(all_xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
+                         label=f'Band covers ±{deviation} points ({percent_within_band}% points)')  
     plt.legend()
-    plt.label()
     plt.grid(True)
-    plt.fill_between(all_xdata, lower_bound, upper_bound, color='grey', alpha=0.3,)
+    
+    cursor = mplcursors.cursor([scatter_inside, scatter_outside], hover=True)
+    cursor.connect("add", lambda sel: sel.annotation.set_text(f"({sel.target[0]:.2f}, {sel.target[1]:.2f})"))
+    
     plt.show()
 
 popt, _ = curve_fit(linear_model, xdata, ydata)
