@@ -247,7 +247,9 @@ def plot_linear_cosine(left, right, extension_periods=2):
 
     # Add extra space to the right by extending the x-axis
     axs[0].set_xlim(min(x_plot), 1500) 
-    axs[1].set_xlim(min(x_plot), 1500) 
+    axs[1].set_xlim(min(x_plot), 1500)
+    axs[0].set_ylim(40000, 70000) 
+    axs[1].set_ylim(40000, 70000) 
 
     # axs[0].text(0.05, 0.95, f'Linear: y = {linear_params[0]:.2f}x + {linear_params[1]:.2f}', 
     #          transform=plt.gca().transAxes, fontsize=12, verticalalignment='top')
@@ -286,39 +288,37 @@ from ipywidgets import interact
 
 
 def plot_lin_band():
-    def plot_lin_ci(threshold):
+    def plot_lin_ci(deviation):
         popt, _ = curve_fit(linear_model, xdata, ydata)
         m_fit, c_fit = popt
         
         y_fit = linear_model(xdata, m_fit, c_fit)
         residuals = np.abs(ydata - y_fit)
-        confidence_interval = np.percentile(residuals, threshold)
         
-        inside_band = residuals <= confidence_interval
-        outside_band = residuals > confidence_interval
+        inside_band = residuals <= deviation
+        outside_band = residuals > deviation
         
-        lower_bound = y_fit - confidence_interval
-        upper_bound = y_fit + confidence_interval
-    
+        lower_bound = y_fit - deviation
+        upper_bound = y_fit + deviation
         
+        percent_within_band = int(np.sum(inside_band) / len(xdata) * 100)
+
+
         plt.figure(figsize=(10, 6))
-        plt.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within band', s=10)
-        plt.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside band', s=20)
+        plt.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within deviation', s=10)
+        plt.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside deviation', s=20)
         plt.plot(xdata, y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.2f})', color='black')
-    
-        plt.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, label=f'{threshold}% points inside band')
-    
+        
+        plt.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
+                         label=f'Band covers ±{deviation} points ({percent_within_band}% points)')        
         plt.xlabel('time (units unknown)')
         plt.ylabel('value')
-        # plt.title(f'{threshold} ')
-        plt.legend() 
+        plt.legend()
         plt.grid(True)
         plt.show()
 
-    # change this slider value
-    threshold_slider = widgets.IntSlider(value=5, min=0, max=100, step=1, description='% of points outside band')
-    interact(plot_lin_ci, threshold=threshold_slider)
-
+    deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
+    interact(plot_lin_ci, deviation=deviation_slider)
 
 def plot_lin_all():
     plt.figure(figsize=(10, 6))
