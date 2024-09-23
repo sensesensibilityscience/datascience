@@ -368,16 +368,17 @@ def plot_lin_all(deviation):
     plt.grid(True)
     plt.show()
     
-    
-def tilted_cosine(x, A, B, C, D, E):
-    return A * np.cos(B * x + C) + D * x + E
+#titled cosine function 
+def tilted_cosine(x, A, T, x0, B, C):
+    return A * np.cos(2*np.pi/T * (x - x0)) + B*x + C
 
 def plot_tilted_cosine_ci(deviation):
-    popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), np.pi/200, 0, 0, np.mean(ydata)])
-    A_fit, B_fit, C_fit, D_fit, E_fit = popt
+    popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), 365, 0, 0, np.mean(ydata)])
+    A_fit, T_fit, x0_fit, B_fit, C_fit = popt
     
-    y_fit = tilted_cosine(xdata, A_fit, B_fit, C_fit, D_fit, E_fit)
+    y_fit = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
     residuals = np.abs(ydata - y_fit)
+    tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
     
     inside_band = residuals <= deviation
     outside_band = residuals > deviation
@@ -390,7 +391,7 @@ def plot_tilted_cosine_ci(deviation):
     plt.figure(figsize=(10, 6))
     plt.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within deviation', s=10)
     plt.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside deviation', s=20)
-    plt.plot(xdata, y_fit, label=f'Tilted Cosine Fit (y = {A_fit:.2f}cos({B_fit:.2f}x + {C_fit:.2f}) + {D_fit:.2f}x + {E_fit:.2f})', color='black')
+    plt.plot(xdata, y_fit, label=f'Tilted Cosine Fit\n(y = {A_fit:.2f}cos(2π/{T_fit:.2f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.2f})', color='black')
     
     plt.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
                      label=f'Band covers ±{deviation} ({percent_within_band}% points)')        
@@ -399,14 +400,20 @@ def plot_tilted_cosine_ci(deviation):
     plt.legend()
     plt.grid(True)
     plt.show()
+    return tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
+
 
 def plot_tilted_band():
     ouput = widgets.Output() # see admission notebook for how to do
     deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
     interact(plot_tilted_cosine_ci, deviation=deviation_slider)
 
-
     
+popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), 365, 0, 0, np.mean(ydata)])
+A_fit, T_fit, x0_fit, B_fit, C_fit = popt
+y_fit = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
+residuals = np.abs(ydata - y_fit)
+fit_data_with_tilt = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 
     
     
