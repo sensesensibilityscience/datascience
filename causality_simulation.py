@@ -35,8 +35,8 @@ display(HTML('''<style>
     [title="Assigned samples:"] { min-width: 150px; }
 </style>'''))
 
-def dialog(title, body, button):
-    display(Javascript("require(['base/js/dialog'], function(dialog) {dialog.modal({title: '%s', body: '%s', buttons: {'%s': {}}})});" % (title, body, button)))
+def dialog(body):
+    display(Javascript(f"alert('{body}')"))
 
 class CausalNetwork:
     def __init__(self):
@@ -205,19 +205,19 @@ class Experiment:
         seen = []
         for g in groups:
             if g['name'] in seen:
-                dialog('Duplicate group names', 'Some of the groups have been given the same name. Please choose a unique name for each group.', 'OK')
+                dialog('Some of the groups have been given the same name. Please choose a unique name for each group.')
                 return
             else:
                 seen.append(g['name'])
             if g['samples'] is None:
-                dialog('Assignment invalid', 'Invalid assignment of samples to groups! Please revise your assignments.', 'OK')
+                dialog('Invalid assignment of samples to groups! Please revise your assignments.')
                 return
             for i in g['samples']:
                 self.data.at[i,'Group'] = g['name']
         self.groups = [g['name'] for g in groups] # list of group names
         self.group_ids = {name: i for i, name in enumerate(self.groups)} # for easier lookup of group ids
         if None in self.data['Group'].unique():
-            dialog('Not all samples assigned', 'Not all samples have been assigned to a group! Please revise your assignments.', 'OK')
+            dialog('Not all samples have been assigned to a group! Please revise your assignments.')
             return
         self.assigned = True
         if self.a:
@@ -245,7 +245,7 @@ class Experiment:
         show: array of names
         '''
         if not self.assigned:
-            dialog('Groups not assigned', 'You have not yet assigned any groups! Click on "Visualise assignment" before running this box.', 'OK')
+            dialog('You have not yet assigned any groups! Click on "Visualise assignment" before running this box.')
             return
         disable = self.network.nodes.keys() if disable == 'all' else disable
         self.intervention_setting = InterventionSetting(self, show=show, disable=disable)
@@ -302,7 +302,7 @@ class Experiment:
         Plots data after doExperiment has been called
         '''
         if not self.done:
-            dialog('Experiment not performed', 'You have not yet performed the experiment! Click on "Perform experiment" before running this box.', 'OK')
+            dialog('You have not yet performed the experiment! Click on "Perform experiment" before running this box.')
             return
         p = InteractivePlot(self, show)
         self.p = p
@@ -322,7 +322,7 @@ class TruffulaExperiment(Experiment):
         another variable to visualize.
         '''
         if not self.done:
-            dialog('Experiment not performed', 'You have not yet performed the experiment! Click on "Perform experiment" before running this box.', 'OK')
+            dialog('You have not yet performed the experiment! Click on "Perform experiment" before running this box.')
             return
         o = OrchardPlot(self, gradient=gradient, show=show)
         self.o = o
