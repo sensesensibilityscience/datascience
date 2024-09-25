@@ -1,21 +1,59 @@
 import pandas as pd
 import ipywidgets as widgets
+from ipywidgets import interact
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 import plotly.express as px
 from scipy.optimize import curve_fit
+import mplcursors
+
+# Models used through out the lab, with the scipy's curvefit
+def linear_model(x, a, b):
+    return a * x + b
+
+def quadratic_model(x, a, b, c):
+    return a * x**2 + b * x + c
+
+def gaussian_model(x, a, b, c, d):
+    return a * np.exp(-((x - b)**2) / (2 * c**2)) + d
+
+def cosine_model(x, a, b, c, d):
+    return a * np.cos(b * x + c) + d
 
 excessdeaths = pd.read_csv("weekly_counts_of_deaths_cleaned.csv")
 excessdeaths['Week Ending Date'] = pd.to_datetime(excessdeaths['Week Ending Date'])    
 end_of_2019 = pd.to_datetime('2020-01-01')
 excessdeaths_2015_to_2019 = excessdeaths[excessdeaths["Week Ending Date"] < end_of_2019]
     
+# shortened data
 xdata = (excessdeaths_2015_to_2019['Week Ending Date'] - excessdeaths_2015_to_2019['Week Ending Date'].min()).dt.days
 ydata = excessdeaths_2015_to_2019['Number of Deaths'].values 
 xdata = np.asarray(xdata)
 ydata = np.asarray(ydata)
 
+# linear model from shortened data
+popt, _ = curve_fit(linear_model, xdata, ydata)
+m_fit, c_fit = popt
+
+# all data
+all_xdata = (excessdeaths['Week Ending Date'] - excessdeaths['Week Ending Date'].min()).dt.days
+all_ydata = excessdeaths['Number of Deaths'].values 
+all_xdata = np.asarray(all_xdata)
+all_ydata = np.asarray(all_ydata)
+y_fit = linear_model(all_xdata, m_fit, c_fit)
+
+# shortened data with two extra points; for investigating threshold 
+last_point_threshold = pd.to_datetime('2020-04-15')
+excessdeaths_threshold = excessdeaths[excessdeaths["Week Ending Date"] < last_point_threshold]
+threshold_xdata = (excessdeaths_threshold['Week Ending Date'] - excessdeaths_threshold['Week Ending Date'].min()).dt.days
+threshold_ydata = excessdeaths_threshold['Number of Deaths'].values 
+threshold_xdata = np.asarray(threshold_xdata)
+threshold_ydata = np.asarray(threshold_ydata)
+threshold_y_fit = linear_model(threshold_xdata, m_fit, c_fit)
+
+
+# cutoff used for pre-lab portion
 right_lim = 140
 left_lim = 75
 all_data_linear_fit = [0, 0]
@@ -161,8 +199,6 @@ def fits(start, stop):
     return linear_params, quadratic_params, gaussian_params, cosine_params
     
 def expanded_plot():
-    # x_fit, y_fit = get_pre_lab_data(75, 100)
-    # x_fit = x_fit + 45
     x_plot, y_plot = get_pre_lab_data(40, right_lim)
 
     linear_params,quadratic_params,gaussian_params,cosine_params, = fits(75, 130)
@@ -247,12 +283,9 @@ def plot_linear_cosine(left, right, extension_periods=2):
 
     # Add extra space to the right by extending the x-axis
     axs[0].set_xlim(min(x_plot), 1500) 
-    axs[1].set_xlim(min(x_plot), 1500) 
-
-    # axs[0].text(0.05, 0.95, f'Linear: y = {linear_params[0]:.2f}x + {linear_params[1]:.2f}', 
-    #          transform=plt.gca().transAxes, fontsize=12, verticalalignment='top')
-    # axs[1].text(0.05, 0.90, f'Cosine: y = {cosine_params[0]:.2f}cos({cosine_params[1]:.2f}x + {cosine_params[2]:.2f}) + {cosine_params[3]:.2f}', 
-    #          transform=plt.gca().transAxes, fontsize=12, verticalalignment='top')
+    axs[1].set_xlim(min(x_plot), 1500)
+    axs[0].set_ylim(40000, 70000) 
+    axs[1].set_ylim(40000, 70000) 
 
     # Labels and grid
     axs[0].set_xlabel('time (units unknowns)')
@@ -267,92 +300,120 @@ def plot_linear_cosine(left, right, extension_periods=2):
 
     plt.show()
 
-# Models used through out the lab, with the scipy's curvefit
-def linear_model(x, a, b):
-    return a * x + b
-
-def quadratic_model(x, a, b, c):
-    return a * x**2 + b * x + c
-
-def gaussian_model(x, a, b, c, d):
-    return a * np.exp(-((x - b)**2) / (2 * c**2)) + d
-
-def cosine_model(x, a, b, c, d):
-    return a * np.cos(b * x + c) + d
-
-
-import ipywidgets as widgets
-from ipywidgets import interact
-
-
 def plot_lin_band():
-    def plot_lin_ci(threshold):
+    deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
+    interact(plot_lin_ci, deviation=deviation_slider)
+    
+def plot_lin_ci(deviation):
         popt, _ = curve_fit(linear_model, xdata, ydata)
         m_fit, c_fit = popt
         
         y_fit = linear_model(xdata, m_fit, c_fit)
         residuals = np.abs(ydata - y_fit)
-        confidence_interval = np.percentile(residuals, threshold)
         
-        inside_band = residuals <= confidence_interval
-        outside_band = residuals > confidence_interval
+        inside_band = residuals <= deviation
+        outside_band = residuals > deviation
         
-        lower_bound = y_fit - confidence_interval
-        upper_bound = y_fit + confidence_interval
-    
+        lower_bound = y_fit - deviation
+        upper_bound = y_fit + deviation
         
+        percent_within_band = int(np.sum(inside_band) / len(xdata) * 100)
+
+
         plt.figure(figsize=(10, 6))
-        plt.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within band', s=10)
-        plt.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside band', s=20)
+        plt.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within deviation', s=10)
+        plt.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside deviation', s=20)
         plt.plot(xdata, y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.2f})', color='black')
-    
-        plt.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, label=f'{threshold}% points inside band')
-    
+        
+        plt.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
+                         label=f'Band covers ±{deviation} points ({percent_within_band}% points)')        
         plt.xlabel('time (units unknown)')
         plt.ylabel('value')
-        # plt.title(f'{threshold} ')
-        plt.legend() 
+        plt.legend()
         plt.grid(True)
         plt.show()
-
-    # change this slider value
-    threshold_slider = widgets.IntSlider(value=5, min=0, max=100, step=1, description='% of points outside band')
-    interact(plot_lin_ci, threshold=threshold_slider)
-
-
-def plot_lin_all():
-    plt.figure(figsize=(10, 6))
-    # plt.scatter(all_xdata, all_ydata, color='blue', s=10)
-
-    residuals = np.abs(all_ydata - y_fit)
-    confidence_interval = np.percentile(residuals, 90)
-    all_data_linear_fit = [m_fit, c_fit]
-
-    inside_band = residuals <= confidence_interval
-    outside_band = residuals > confidence_interval
         
-    lower_bound = y_fit - confidence_interval
-    upper_bound = y_fit + confidence_interval
 
-    plt.plot(all_xdata, y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.2f})', color='black')
-    plt.scatter(all_xdata[inside_band], all_ydata[inside_band], color='blue', label='Within band', s=10)
-    plt.scatter(all_xdata[outside_band], all_ydata[outside_band], color='red', label='Outside band', s=20)
+def plot_lin_all(deviation):
+    plt.figure(figsize=(10, 6))
+
+    residuals = np.abs(threshold_ydata - threshold_y_fit)
+
+    inside_band = residuals <= deviation
+    outside_band = residuals > deviation
+        
+    lower_bound = threshold_y_fit - deviation
+    upper_bound = threshold_y_fit + deviation
+    
+    percent_within_band = int(np.sum(inside_band) / len(threshold_xdata) * 100)
+
+
+    plt.plot(threshold_xdata, threshold_y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.2f})', color='black')
+
+    plt.scatter(threshold_xdata[inside_band], threshold_ydata[inside_band], color='blue', label='Within band', s=10)
+    plt.scatter(threshold_xdata[outside_band], threshold_ydata[outside_band], color='red', label='Outside band', s=20)
+    
+    # Add annotations of points for students to estimate threshold point
+    for time in [1904, 1911, 1918]:
+        index = list(threshold_xdata).index(time)
+        plt.text(threshold_xdata[index], threshold_ydata[index], f'({threshold_xdata[index]}, {threshold_ydata[index]:.2f})', 
+                fontsize=9, ha='right')
+
+    # Fill the deviation band area
+    plt.xlabel('time (units unknown)')
+    plt.ylabel('value')
+    plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
+                         label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    
+#titled cosine function 
+def tilted_cosine(x, A, T, x0, B, C):
+    return A * np.cos(2*np.pi/T * (x - x0)) + B*x + C
+
+def plot_tilted_cosine_ci(deviation):
+    popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), 365, 0, 0, np.mean(ydata)])
+    A_fit, T_fit, x0_fit, B_fit, C_fit = popt
+    
+    y_fit = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
+    residuals = np.abs(ydata - y_fit)
+    tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
+    
+    inside_band = residuals <= deviation
+    outside_band = residuals > deviation
+    
+    lower_bound = y_fit - deviation
+    upper_bound = y_fit + deviation
+    
+    percent_within_band = int(np.sum(inside_band) / len(xdata) * 100)
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within deviation', s=10)
+    plt.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside deviation', s=20)
+    plt.plot(xdata, y_fit, label=f'Tilted Cosine Fit\n(y = {A_fit:.2f}cos(2π/{T_fit:.2f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.2f})', color='black')
+    
+    plt.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
+                     label=f'Band covers ±{deviation} ({percent_within_band}% points)')        
     plt.xlabel('time (units unknown)')
     plt.ylabel('value')
     plt.legend()
-    plt.label()
     plt.grid(True)
-    plt.fill_between(all_xdata, lower_bound, upper_bound, color='grey', alpha=0.3,)
     plt.show()
+    return tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 
-popt, _ = curve_fit(linear_model, xdata, ydata)
-m_fit, c_fit = popt
-all_xdata = (excessdeaths['Week Ending Date'] - excessdeaths['Week Ending Date'].min()).dt.days
-all_ydata = excessdeaths['Number of Deaths'].values 
-all_xdata = np.asarray(all_xdata)
-all_ydata = np.asarray(all_ydata)
-y_fit = linear_model(all_xdata, m_fit, c_fit)
+
+def plot_tilted_band():
+    ouput = widgets.Output() # see admission notebook for how to do
+    deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
+    interact(plot_tilted_cosine_ci, deviation=deviation_slider)
+
     
+popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), 365, 0, 0, np.mean(ydata)])
+A_fit, T_fit, x0_fit, B_fit, C_fit = popt
+y_fit = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
+residuals = np.abs(ydata - y_fit)
+fit_data_with_tilt = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 
     
     
