@@ -146,28 +146,24 @@ def fit_pre_lab_models():
     axs[0, 0].set_title('Linear')
     axs[0, 0].set_xlabel('time')
     axs[0, 0].set_ylabel('value')
-    axs[0, 0].legend()
     
     axs[0, 1].plot(x, y, 'o')
     axs[0, 1].plot(x_fit, y_quadratic_fit, '-', label='Quadratic Fit')
     axs[0, 1].set_title('Quadratic')
     axs[0, 1].set_xlabel('time')
     axs[0, 1].set_ylabel('value')
-    axs[0, 1].legend()
     
     axs[1, 0].plot(x, y, 'o')
     axs[1, 0].plot(x_fit, y_gaussian_fit, '-', label='Gaussian Fit')
     axs[1, 0].set_title('Gaussian')
-    axs[1, 0].set_xlabel('time)')
+    axs[1, 0].set_xlabel('time')
     axs[1, 0].set_ylabel('value')
-    axs[1, 0].legend()
     
     axs[1, 1].plot(x, y, 'o')
     axs[1, 1].plot(x_fit, y_cosine_fit, '-', label='Cosine Fit')
     axs[1, 1].set_title('Cosine')
     axs[1, 1].set_xlabel('time')
     axs[1, 1].set_ylabel('value')
-    axs[1, 1].legend()
     
     plt.tight_layout()
     plt.show()
@@ -218,7 +214,7 @@ def expanded_plot():
     axs[0, 0].set_ylabel('value')
     # axs[0, 0].legend()
     axs[0, 0].set_ylim(40000, 70000)
-    axs[0, 0].axvspan(250, 600, color='gray', alpha=0.1)  # Shade the region
+    axs[0, 0].axvspan(250, 600, color='gray', alpha=0.1)  # shade
 
     
     axs[0, 1].plot(x_plot, y_plot, 'o')
@@ -228,7 +224,7 @@ def expanded_plot():
     axs[0, 1].set_ylabel('value')
     axs[0, 1].set_ylim(40000, 70000)
     # axs[0, 1].legend()
-    axs[0, 1].axvspan(250, 600, color='gray', alpha=0.1)  # Shade the region
+    axs[0, 1].axvspan(250, 600, color='gray', alpha=0.1) 
 
     
     axs[1, 0].plot(x_plot, y_plot, 'o')
@@ -238,8 +234,7 @@ def expanded_plot():
     axs[1, 0].set_ylabel('value')
     axs[1, 0].set_ylim(40000, 70000)
 
-    # axs[1, 0].legend()
-    axs[1, 0].axvspan(250, 600, color='gray', alpha=0.1)  # Shade the region
+    axs[1, 0].axvspan(250, 600, color='gray', alpha=0.1)
 
     
     axs[1, 1].plot(x_plot, y_plot, 'o')
@@ -248,15 +243,8 @@ def expanded_plot():
     axs[1, 1].set_xlabel('time')
     axs[1, 1].set_ylabel('value')
     axs[1, 1].set_ylim(40000, 70000)
-    axs[1, 1].axvspan(250, 600, color='gray', alpha=0.1)  # Shade the region
+    axs[1, 1].axvspan(250, 600, color='gray', alpha=0.1)
 
-    # axs[1, 1].legend()
-
-    axs[0, 0].text(0.05, 0.95, f'y = {linear_params[0]:.2f}x + {linear_params[1]:.2f}', transform=axs[0, 0].transAxes, fontsize=10, verticalalignment='top')
-    axs[0, 1].text(0.05, 0.95, f'y = {quadratic_params[0]:.2e}x² + {quadratic_params[1]:.2f}x + {quadratic_params[2]:.2f}', transform=axs[0, 1].transAxes, fontsize=10, verticalalignment='top')
-    axs[1, 0].text(0.05, 0.95, f'y = {gaussian_params[0]:.2f} * exp(-((x - {gaussian_params[1]:.2f})² / (2 * {gaussian_params[2]:.2f}²)))', transform=axs[1, 0].transAxes, fontsize=10, verticalalignment='top')
-    axs[1, 1].text(0.05, 0.95, f'y = {cosine_params[0]:.2f} * cos({cosine_params[1]:.2f} * x + {cosine_params[2]:.2f}) + {cosine_params[3]:.2f}', transform=axs[1, 1].transAxes, fontsize=10, verticalalignment='top')
-    
     plt.tight_layout()
     plt.show
 
@@ -273,29 +261,26 @@ def plot_linear_cosine(left, right, extension_periods=2):
 
     fig, axs = plt.subplots(1, 2, figsize=(left, right))
 
-    # Plot the original data
     axs[0].plot(x_plot, y_plot, 'o')
     axs[1].plot(x_plot, y_plot, 'o')
 
-    # Plot the linear and cosine fits
     axs[0].plot(x_fit_expanded, y_linear_fit, '-', label='Linear Fit', color='tab:orange')
     axs[1].plot(x_fit_expanded, y_cosine_fit, '-', label='Cosine Fit', color='tab:orange')
 
-    # Add extra space to the right by extending the x-axis
     axs[0].set_xlim(min(x_plot), 1500) 
     axs[1].set_xlim(min(x_plot), 1500)
     axs[0].set_ylim(40000, 70000) 
     axs[1].set_ylim(40000, 70000) 
 
-    # Labels and grid
-    axs[0].set_xlabel('time (units unknowns)')
+    axs[0].set_xlabel('time')
     axs[0].set_ylabel('value')
-    axs[0].legend()
+    axs[0].set_title('Linear')
+
     axs[0].grid(True)
 
-    axs[1].set_xlabel('time (units unknowns)')
+    axs[1].set_xlabel('time')
     axs[1].set_ylabel('value')
-    axs[1].legend()
+    axs[1].set_title('Cosine')
     axs[1].grid(True)
 
     plt.show()
