@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 from scipy.optimize import curve_fit
 import mplcursors
+from matplotlib.ticker import AutoMinorLocator
+
 
 # Models used through out the lab, with the scipy's curvefit
 def linear_model(x, a, b):
@@ -212,9 +214,8 @@ def expanded_plot():
     axs[0, 0].set_title('Linear')
     axs[0, 0].set_xlabel('time')
     axs[0, 0].set_ylabel('value')
-    # axs[0, 0].legend()
     axs[0, 0].set_ylim(40000, 70000)
-    axs[0, 0].axvspan(250, 600, color='gray', alpha=0.1)  # shade
+    axs[0, 0].axvspan(280, 525, color='gray', alpha=0.1)  # change these value to by dynamic
 
     
     axs[0, 1].plot(x_plot, y_plot, 'o')
@@ -223,8 +224,7 @@ def expanded_plot():
     axs[0, 1].set_xlabel('time')
     axs[0, 1].set_ylabel('value')
     axs[0, 1].set_ylim(40000, 70000)
-    # axs[0, 1].legend()
-    axs[0, 1].axvspan(250, 600, color='gray', alpha=0.1) 
+    axs[0, 1].axvspan(280, 525, color='gray', alpha=0.1) 
 
     
     axs[1, 0].plot(x_plot, y_plot, 'o')
@@ -233,8 +233,7 @@ def expanded_plot():
     axs[1, 0].set_xlabel('time')
     axs[1, 0].set_ylabel('value')
     axs[1, 0].set_ylim(40000, 70000)
-
-    axs[1, 0].axvspan(250, 600, color='gray', alpha=0.1)
+    axs[1, 0].axvspan(280, 525, color='gray', alpha=0.1)
 
     
     axs[1, 1].plot(x_plot, y_plot, 'o')
@@ -243,7 +242,7 @@ def expanded_plot():
     axs[1, 1].set_xlabel('time')
     axs[1, 1].set_ylabel('value')
     axs[1, 1].set_ylim(40000, 70000)
-    axs[1, 1].axvspan(250, 600, color='gray', alpha=0.1)
+    axs[1, 1].axvspan(280, 525, color='gray', alpha=0.1)
 
     plt.tight_layout()
     plt.show
@@ -385,7 +384,7 @@ def plot_tilted_cosine_ci(deviation):
     plt.legend()
     plt.grid(True)
     plt.show()
-    return tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
+#     return tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 
 
 def plot_tilted_band():
@@ -400,5 +399,59 @@ y_fit = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 residuals = np.abs(ydata - y_fit)
 fit_data_with_tilt = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 
+
+## POISSON DEMO ##
+
+def plotMockWeeklyDeaths(output, ax, s_weekly_deaths):
+    def f(b):
+        with output:
+            expected_deaths = s_weekly_deaths.value
+            random_deaths = np.random.poisson(expected_deaths)
+            
+            # update the plot
+            ax.clear()
+            ax.bar(['Expected', 'Random'], [expected_deaths, random_deaths], color=['blue', 'orange'])
+            ax.text(1, random_deaths + 2000, f'{random_deaths}', ha='center')
+            ax.text(0, expected_deaths + 2000, f'{expected_deaths}', ha='center')
+            ax.set_ylabel('Number of Deaths')
+            ax.set_ylim(0, expected_deaths +20000)
+            ax.set_title('Weekly Deaths Simulation')
+            ax.yaxis.set_minor_locator(AutoMinorLocator(10))
+            ax.tick_params(which='both')
+    return f
+
+def plotMockWeeklyDeathsWithButton():
+    fig, ax = plt.subplots(figsize=(6, 4))
+    plt.gcf().subplots_adjust(left=0.2)
     
+    ax.bar(['Expected', 'Random'], [0, 0], color=['blue', 'orange'])
+    ax.set_ylabel('Number of Deaths')
+    ax.set_ylim(0, 100000)
+    ax.set_title('Weekly Deaths Simulation')
     
+    s_weekly_deaths = widgets.IntSlider(
+        value=53000,  # average weekly deaths
+        min=10000,    
+        max=100000,
+        step=1000,
+        description='Weekly deaths',
+        disabled=False,
+        continuous_update=False,
+        orientation='horizontal',
+        readout=True,
+        readout_format='d',
+        layout={'width': '500px'},
+        style={'description_width': '150px'}
+    )
+    
+    # button to randomly pick deaths
+    b = widgets.Button(
+        description='Simulate Weekly Deaths!',
+        disabled=False,
+        tooltip='Click to simulate random deaths for the week!',
+        layout={'width': '200px'}
+    )
+    
+    output = widgets.Output()
+    b.on_click(plotMockWeeklyDeaths(output, ax, s_weekly_deaths))
+    display(s_weekly_deaths, b, output)
