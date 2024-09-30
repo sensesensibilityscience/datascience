@@ -402,32 +402,44 @@ fit_data_with_tilt = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 
 ## POISSON DEMO ##
 
-def plotMockWeeklyDeaths(output, ax, s_weekly_deaths):
+import matplotlib.pyplot as plt
+import numpy as np
+import ipywidgets as widgets
+from IPython.display import display
+from matplotlib.ticker import AutoMinorLocator
+
+def plotMockWeeklyDeaths(output, s_weekly_deaths):
+    plt.close('all')
     def f(b):
         with output:
+            output.clear_output(wait=True)  # Clear previous output
             expected_deaths = s_weekly_deaths.value
             random_deaths = np.random.poisson(expected_deaths)
-            
-            # update the plot
-            ax.clear()
-            ax.bar(['Expected', 'Random'], [expected_deaths, random_deaths], color=['blue', 'orange'])
-            ax.text(1, random_deaths + 2000, f'{random_deaths}', ha='center')
-            ax.text(0, expected_deaths + 2000, f'{expected_deaths}', ha='center')
-            ax.set_ylabel('Number of Deaths')
-            ax.set_ylim(0, expected_deaths +20000)
-            ax.set_title('Weekly Deaths Simulation')
-            ax.yaxis.set_minor_locator(AutoMinorLocator(10))
-            ax.tick_params(which='both')
+#             print(expected_deaths, random_deaths)
+
+            plt.figure(figsize=(6, 4))
+            plt.bar(['Expected', 'Random'], [expected_deaths, random_deaths], color=['grey', 'lightblue'])
+            plt.text(1, random_deaths + 2000, f'{random_deaths}', ha='center')
+            plt.text(0, expected_deaths + 2000, f'{expected_deaths}', ha='center')
+            plt.ylabel('Number of Deaths')
+            plt.ylim(0, expected_deaths + 20000)
+            plt.title(f'Weekly Deaths Simulation (expected average is {expected_deaths})')
+            plt.gca().yaxis.set_minor_locator(AutoMinorLocator(10))
+            plt.gca().tick_params(which='both')
+
+            plt.show()
+
     return f
 
-def plotMockWeeklyDeathsWithButton():
-    fig, ax = plt.subplots(figsize=(6, 4))
-    plt.gcf().subplots_adjust(left=0.2)
+def plotMockWeeklyDeathsWithButton(): ## remove the ax object b/c was causing plot to update
     
-    ax.bar(['Expected', 'Random'], [0, 0], color=['blue', 'orange'])
-    ax.set_ylabel('Number of Deaths')
-    ax.set_ylim(0, 100000)
-    ax.set_title('Weekly Deaths Simulation')
+    plt.figure(figsize=(6, 4))
+    plt.ylabel('Number of Deaths')
+    plt.ylim(0, 53000 + 20000)
+    plt.title('Weekly Deaths Simulation')
+    plt.gca().yaxis.set_minor_locator(AutoMinorLocator(10))
+    plt.gca().tick_params(which='both')
+    
     
     s_weekly_deaths = widgets.IntSlider(
         value=53000,  # average weekly deaths
@@ -435,23 +447,17 @@ def plotMockWeeklyDeathsWithButton():
         max=100000,
         step=1000,
         description='Weekly deaths',
-        disabled=False,
         continuous_update=False,
-        orientation='horizontal',
-        readout=True,
-        readout_format='d',
         layout={'width': '500px'},
         style={'description_width': '150px'}
     )
     
-    # button to randomly pick deaths
     b = widgets.Button(
-        description='Simulate Weekly Deaths!',
-        disabled=False,
-        tooltip='Click to simulate random deaths for the week!',
+        description='Simulate weekly deaths',
         layout={'width': '200px'}
     )
     
     output = widgets.Output()
-    b.on_click(plotMockWeeklyDeaths(output, ax, s_weekly_deaths))
+    b.on_click(plotMockWeeklyDeaths(output, s_weekly_deaths))
     display(s_weekly_deaths, b, output)
+
