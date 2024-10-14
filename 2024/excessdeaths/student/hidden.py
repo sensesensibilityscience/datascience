@@ -1,6 +1,6 @@
 import pandas as pd
 import ipywidgets as widgets
-from ipywidgets import interact
+from ipywidgets import interact, FloatSlider, IntSlider
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt
@@ -70,20 +70,19 @@ parameters = []
 def get_data():
     return timeseries_data
 
+####### MODEL PARAMTER WIDGETS #######
 
-def cosine_widget():
-    from ipywidgets import interact, FloatSlider
-
-    def cos_function(x, A, B, C, D):
-        return A * np.cos(B*(x - C)) + D
+def cosine_linear_widget():
+    def cos__linear_function(x, A, T, C, D, linear_B):
+        return A * np.cos((2 * np.pi / T) * (x - C)) + linear_B * x + D
     
-    def plot_cos(A=1, B=1, C=0, D=0):
+    def plot_cos_lin(A=1, T=1000, C=0, D=0, linear_B=0):
         x = np.linspace(0, 1800, 200)
-        y = cos_function(x, A, B, C, D)
+        y = cos__linear_function(x, A, T, C, D, linear_B)
         
         plt.figure(figsize=(10, 4))
         plt.scatter(xdata, ydata, s= 4, c='gray', alpha=0.5, label='original data')
-        plt.plot(x, y, label='cosine function')
+        plt.plot(x, y, label=f'cosine function: A={A}, T={T}, C={C}, D={D}, B={linear_B}')
         
         plt.xlabel('time')
         plt.ylabel('value')
@@ -91,12 +90,30 @@ def cosine_widget():
         plt.grid(True)
         plt.show()
     
-    # widget
-    A_slider = FloatSlider(min=0, max=10000, step=1, readout_format='.0f')
-    B_slider = FloatSlider(min=0, max=0.2, step=0.001, readout_format='.2f')
-    C_slider = FloatSlider(min=-50, max=50, step=0.1, readout_format='.1f')
-    D_slider = FloatSlider(min=0, max=75000, step=1, readout_format='.0f')
-    interact(plot_cos, A=A_slider, B=B_slider, C=C_slider, D=D_slider)
+    # Creating sliders for each parameter
+    A_slider = FloatSlider(min=0, max=10000, step=1, readout_format='.0f', description='amplitude A')
+    T_slider = FloatSlider(min=0.1, max=2000, step=1, readout_format='.1f', description='period T')
+    x0_slider = FloatSlider(min=-50, max=50, step=0.1, readout_format='.1f', description='phase Shift C')
+    B_slider = FloatSlider(min=-10, max=10, step=0.1, readout_format='.1f', description='linear Term B')
+    D_slider = FloatSlider(min=0, max=75000, step=1, readout_format='.0f', description='vertical Shift D')
+
+    # Creating the interactive widget
+    interact(plot_cos_lin, A=A_slider, T=T_slider, C=x0_slider, D=D_slider, linear_B=B_slider)
+    
+
+def linear_widget():
+    def plot_linear(slope, intercept):
+        plt.figure(figsize=(10, 4))
+
+        plt.scatter(xdata, ydata,)
+
+        yfit = slope * xdata + intercept
+        plt.plot(xdata, yfit, color='red', label=f'Fitted Model: y = {slope:.2f}x + {intercept:.2f}')
+        plt.show()
+
+    interact(plot_linear,
+    slope=FloatSlider(value=1.0, min=-5.0, max=5.0, step=0.01, description='Slope'),
+    intercept=IntSlider(value=0.0, min=30000, max=70000, step=1.0, description='Intercept'));
 
 def get_all_data():
     all_xdata = (excessdeaths['Week Ending Date'] - excessdeaths['Week Ending Date'].min()).dt.days
@@ -400,7 +417,7 @@ residuals = np.abs(ydata - y_fit)
 fit_data_with_tilt = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 
 
-## POISSON DEMO ##
+####### POISSON DEMO #######
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -412,10 +429,9 @@ def plotMockWeeklyDeaths(output, s_weekly_deaths):
     plt.close('all')
     def f(b):
         with output:
-            output.clear_output(wait=True)  # Clear previous output
+            output.clear_output(wait=True) 
             expected_deaths = s_weekly_deaths.value
             random_deaths = np.random.poisson(expected_deaths)
-#             print(expected_deaths, random_deaths)
 
             plt.figure(figsize=(6, 4))
             plt.bar(['Expected', 'Random'], [expected_deaths, random_deaths], color=['grey', 'lightblue'])
