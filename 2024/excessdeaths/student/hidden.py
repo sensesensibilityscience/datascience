@@ -91,11 +91,11 @@ def cosine_linear_widget():
         plt.show()
     
     # Creating sliders for each parameter
-    A_slider = FloatSlider(min=0, max=10000, step=1, readout_format='.0f', description='amplitude A')
-    T_slider = FloatSlider(min=0.1, max=2000, step=1, readout_format='.1f', description='period T')
-    x0_slider = FloatSlider(min=-50, max=50, step=0.1, readout_format='.1f', description='phase Shift C')
-    B_slider = FloatSlider(min=-10, max=10, step=0.1, readout_format='.1f', description='linear Term B')
-    D_slider = FloatSlider(min=0, max=75000, step=1, readout_format='.0f', description='vertical Shift D')
+    A_slider = FloatSlider(min=0, max=10000, step=10, readout_format='.0f', description='amplitude')
+    T_slider = FloatSlider(min=1, max=500, step=1, readout_format='.1f', description='period')
+    x0_slider = FloatSlider(min=-50, max=50, step=0.1, readout_format='.1f', description='phase shift')
+    B_slider = FloatSlider(min=-5, max=5, step=0.1, readout_format='.1f', description='slope')
+    D_slider = FloatSlider(min=20000, max=75000, step=1, readout_format='.0f', description='vertical shift')
 
     # Creating the interactive widget
     interact(plot_cos_lin, A=A_slider, T=T_slider, C=x0_slider, D=D_slider, linear_B=B_slider)
@@ -425,12 +425,11 @@ import ipywidgets as widgets
 from IPython.display import display
 from matplotlib.ticker import AutoMinorLocator
 
-def plotMockWeeklyDeaths(output, s_weekly_deaths):
+def plotMockWeeklyDeaths(output, expected_deaths):
     plt.close('all')
     def f(b):
         with output:
-            output.clear_output(wait=True) 
-            expected_deaths = s_weekly_deaths.value
+            output.clear_output(wait=True)
             random_deaths = np.random.poisson(expected_deaths)
 
             plt.figure(figsize=(6, 4))
@@ -456,24 +455,17 @@ def plotMockWeeklyDeathsWithButton(): ## remove the ax object b/c was causing pl
     plt.gca().yaxis.set_minor_locator(AutoMinorLocator(10))
     plt.gca().tick_params(which='both')
     
-    
-    s_weekly_deaths = widgets.IntSlider(
-        value=53000,  # average weekly deaths
-        min=10000,    
-        max=100000,
-        step=1000,
-        description='Weekly deaths',
-        continuous_update=False,
-        layout={'width': '500px'},
-        style={'description_width': '150px'}
-    )
-    
+ 
     b = widgets.Button(
         description='Simulate weekly deaths',
         layout={'width': '200px'}
     )
     
     output = widgets.Output()
-    b.on_click(plotMockWeeklyDeaths(output, s_weekly_deaths))
-    display(s_weekly_deaths, b, output)
+    expected_deaths = 53000
+    b.on_click(plotMockWeeklyDeaths(output, expected_deaths))
+    display(b, output)
+    
+####### ALL DATA #######
+  
 
