@@ -55,6 +55,7 @@ threshold_ydata = np.asarray(threshold_ydata)
 threshold_y_fit = linear_model(threshold_xdata, m_fit, c_fit)
 
 
+
 # cutoff used for pre-lab portion
 right_lim = 140
 left_lim = 75
@@ -335,21 +336,25 @@ def plot_lin_ci(deviation):
         plt.show()
         
 
-def plot_lin_all(deviation):
+def plot_cos_lin_all(deviation):
     plt.figure(figsize=(10, 6))
-
-    residuals = np.abs(threshold_ydata - threshold_y_fit)
+    
+    # change y data for tilter cosine model
+    popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), 365, 0, 0, np.mean(ydata)])
+    A_fit, T_fit, x0_fit, B_fit, C_fit = popt  
+    threshold_y_fit_cos_lin = tilted_cosine(threshold_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
+    residuals = np.abs(threshold_ydata - threshold_y_fit_cos_lin)
 
     inside_band = residuals <= deviation
     outside_band = residuals > deviation
         
-    lower_bound = threshold_y_fit - deviation
-    upper_bound = threshold_y_fit + deviation
+    lower_bound = threshold_y_fit_cos_lin - deviation
+    upper_bound = threshold_y_fit_cos_lin + deviation
     
     percent_within_band = int(np.sum(inside_band) / len(threshold_xdata) * 100)
 
 
-    plt.plot(threshold_xdata, threshold_y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.2f})', color='black')
+    plt.plot(threshold_xdata, threshold_y_fit_cos_lin, label=f'Tilted Cosine Fit\n(y = {A_fit:.2f}cos(2π/{T_fit:.2f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.2f})', color='black')
 
     plt.scatter(threshold_xdata[inside_band], threshold_ydata[inside_band], color='blue', label='Within band', s=10)
     plt.scatter(threshold_xdata[outside_band], threshold_ydata[outside_band], color='red', label='Outside band', s=20)
@@ -361,7 +366,7 @@ def plot_lin_all(deviation):
                 fontsize=9, ha='right')
 
     # Fill the deviation band area
-    plt.xlabel('time (units unknown)')
+    plt.xlabel('time (in days)')
     plt.ylabel('value')
     plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
                          label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
@@ -405,10 +410,45 @@ def plot_tilted_cosine_ci(deviation):
 
 
 def plot_tilted_band():
-    ouput = widgets.Output() # see admission notebook for how to do
+    ouput = widgets.Output() 
     deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
     interact(plot_tilted_cosine_ci, deviation=deviation_slider)
 
+    
+def plot_lin_all(deviation):
+    plt.figure(figsize=(10, 6))
+
+    residuals = np.abs(threshold_ydata - threshold_y_fit)
+
+    inside_band = residuals <= deviation
+    outside_band = residuals > deviation
+        
+    lower_bound = threshold_y_fit - deviation
+    upper_bound = threshold_y_fit + deviation
+    
+    percent_within_band = int(np.sum(inside_band) / len(threshold_xdata) * 100)
+
+
+    plt.plot(threshold_xdata, threshold_y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.2f})', color='black')
+
+    plt.scatter(threshold_xdata[inside_band], threshold_ydata[inside_band], color='blue', label='Within band', s=10)
+    plt.scatter(threshold_xdata[outside_band], threshold_ydata[outside_band], color='red', label='Outside band', s=20)
+    
+    # Add annotations of points for students to estimate threshold point
+    for time in [1904, 1911, 1918]:
+        index = list(threshold_xdata).index(time)
+        plt.text(threshold_xdata[index], threshold_ydata[index], f'({threshold_xdata[index]}, {threshold_ydata[index]:.2f})', 
+                fontsize=9, ha='right')
+
+    # Fill the deviation band area
+    plt.xlabel('time (units unknown)')
+    plt.ylabel('value')
+    plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
+                         label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
+    plt.legend()
+    plt.grid(True)
+    plt.show()   
+    
     
 popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), 365, 0, 0, np.mean(ydata)])
 A_fit, T_fit, x0_fit, B_fit, C_fit = popt
