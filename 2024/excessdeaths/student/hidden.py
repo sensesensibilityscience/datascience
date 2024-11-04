@@ -8,6 +8,7 @@ import plotly.express as px
 from scipy.optimize import curve_fit
 import mplcursors
 from matplotlib.ticker import AutoMinorLocator
+from datetime import datetime, timedelta
 
 
 # Models used through out the lab, with the scipy's curvefit
@@ -505,6 +506,61 @@ def plotMockWeeklyDeathsWithButton(): ## remove the ax object b/c was causing pl
     expected_deaths = 53000
     b.on_click(plotMockWeeklyDeaths(output, expected_deaths))
     display(b, output)
+    
+    
+def plotAllData():
+    plt.figure(figsize=(10, 4))
+    plt.plot(all_xdata, all_ydata, '.', label='Pre Signal')
+    post_points = all_xdata >= 1904
+    plt.plot(all_xdata[post_points], all_ydata[post_points], '.', color='red', label='Pre Signal (COVID Period)')
+    model_ydata = tilted_cosine(all_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
+    plt.plot(all_xdata, model_ydata, color="black", label='Model')
+
+    plt.xlabel('time (in days)')
+    plt.ylabel('value')
+    plt.legend()
+    plt.show()
+    
+
+def plotMonths():
+    plt.figure(figsize=(10, 4))
+    plt.plot(all_xdata, all_ydata, '.', label='Pre Signal')
+    
+    post_points = all_xdata >= 1904
+    plt.plot(all_xdata[post_points], all_ydata[post_points], '.', color='red', label='COVID Period')
+    
+    model_ydata = tilted_cosine(all_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
+    plt.plot(all_xdata, model_ydata, color="black", label='Model')
+    start_date = pd.to_datetime('2015-01-10')
+    
+    # create month labels for jan and july of each year
+    total_days = int(all_xdata[-1]) + 1  # Total days from 0 to the last day in all_xdata
+    x_labels = []
+    tick_positions = []
+
+    end_date = start_date + pd.Timedelta(days=total_days - 1)
+
+    for year in range(start_date.year, end_date.year + 1):
+        jan_date = pd.to_datetime(f'{year}-01-01')
+        if (jan_date - start_date).days >= 0 and (jan_date - start_date).days < total_days:
+            x_labels.append(jan_date.strftime('%b %Y'))
+            tick_positions.append((jan_date - start_date).days)
+
+        jul_date = pd.to_datetime(f'{year}-07-01')
+        if (jul_date - start_date).days >= 0 and (jul_date - start_date).days < total_days:
+            x_labels.append(jul_date.strftime('%b %Y'))
+            tick_positions.append((jul_date - start_date).days)
+
+    plt.xticks(ticks=tick_positions, labels=x_labels, rotation=45)
+
+    plt.xlabel('Time (in Days)')
+    plt.ylabel('Value')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+
     
 ####### ALL DATA #######
   
