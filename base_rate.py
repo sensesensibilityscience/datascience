@@ -1,94 +1,120 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import ipywidgets as widgets
+from IPython import display
 import spacy
 import lemminflect
-import ipywidgets as wd
-from IPython.display import display, HTML, Javascript
-import json
 
-'''
-TODO
-* Fix apostrophes and hyphens having spaces
-* Add square grid with colours graphic
-* Change number entry into sliders
-* Graphic and final number react in real time to the sliders
-* Add option to display equations or not
-'''
+total = 1000
+ny = 25
+c_pos = '#ffa600' # yellow orange
+c_neg = '#003f5c' # dark blue
+c_pos_dim = '#ffe4b3'
+c_neg_dim = '#b3e7ff'
 
-style_html = '''<style>
-#questions {
-    height: 80px;
-}
+xs = np.arange(total) // ny
+ys = np.arange(total) % ny
 
-#sliders {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    width: 100%;
-    height: 90px;
-    text-align: center;
-}
+p_pos = 0.5
+p_false_pos = 0.1
+p_false_neg = 0.1
 
-#slider1 {
-    flex: 33.33%;
-}
+highlight_pos = True
+highlight_neg = True
 
-#slider2 {
-    flex: 33.33%;
-}
+def ppv():
+    true_pos = p_pos * (1 - p_false_neg)
+    false_pos = (1 - p_pos) * p_false_pos
+    return true_pos / (true_pos + false_pos)
 
-#slider3 {
-    flex: 33.33%;
-}
+def npv():
+    true_neg = (1 - p_pos) * (1 - p_false_pos)
+    false_neg = p_pos * p_false_neg
+    return true_neg / (true_neg + false_neg)
 
-.slider_label {
-    font-size: 14pt;
-}
+@np.vectorize
+def c_map(pos, dim):
+    return (c_pos_dim if pos else c_neg_dim) if dim else (c_pos if pos else c_neg)
 
-#graphic {
-    width: 100%;
-    text-align: center;
-    font-size: 12pt;
-}
+def truth_and_test(p_pos, p_false_pos, p_false_neg):
+    arr = np.zeros((2, total))
+    n_pos = int(total * p_pos)
+    n_false_pos = int(total * (1 - p_pos) * p_false_pos)
+    n_false_neg = int(total * p_pos * p_false_neg)
+    arr[:,:n_pos] = 1 # the truth
+    arr[1,total-n_false_pos:] = 1 # the test result
+    arr[1,:n_false_neg] = 0
+    return arr
 
-.legend_text {
-    text-align: left;
-}
+def plot(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text):
+    q1 = 'Does this koala have KOALA-21?' if q1_text.value == '' else q1_text.value
+    q2 = 'test' if q2_text.value == '' else q2_text.value
+    statement = statementify(q1)
+    statement_neg = statementify(q1, negate=True)
+    p_pos_label.value = f'The prior probability (base rate) that {statement} before doing any test'
+    p_false_pos_label.value = f'The probability that the {q2} is positive even though {statement_neg}'
+    p_false_neg_label.value = f'The probability that the {q2} is negative even though {statement}'
+    ppv_label.value = f'Given that the {q2} is positive, the probability that {statement} is {ppv()*100:.1f}%'
+    npv_label.value = f'Given that the {q2} is negative, the probability that {statement_neg} is {npv()*100:.1f}%'
+    truth_and_test_results = truth_and_test(p_pos, p_false_pos, p_false_neg)
+    dim = (1 - truth_and_test_results[1]) * (not highlight_pos) + truth_and_test_results[1] * (not highlight_neg)
+    c_fill = c_map(truth_and_test_results[0], dim)
+    c_edge = c_map(truth_and_test_results[1], dim)
+    ax.clear()
+    ax.scatter(xs, ys, s=50, c=c_fill, edgecolors=c_edge, linewidth=1.5)
+    n_false_neg = int(np.sum(truth_and_test_results[0] * (1 - truth_and_test_results[1])))
+    n_true_pos = int(np.sum(truth_and_test_results[0] * truth_and_test_results[1]))
+    n_true_neg = int(np.sum((1 - truth_and_test_results[0]) * (1 - truth_and_test_results[1])))
+    n_false_pos = int(np.sum((1 - truth_and_test_results[0]) * truth_and_test_results[1]))
+    legend_elements = [
+        plt.Line2D([0], [0], marker='.', linestyle='', color=c_pos if highlight_neg else c_pos_dim, label=f'{n_false_neg} false negative{"s" if n_false_neg != 1 else ""}', markersize=15, markeredgewidth=1.5, markeredgecolor=c_neg if highlight_neg else c_neg_dim),
+        plt.Line2D([0], [0], marker='.', linestyle='', color=c_pos if highlight_pos else c_pos_dim, label=f'{n_true_pos} true positive{"s" if n_true_pos != 1 else ""}', markersize=15, markeredgewidth=1.5, markeredgecolor=c_pos if highlight_pos else c_pos_dim),
+        plt.Line2D([0], [0], marker='.', linestyle='', color=c_neg if highlight_neg else c_neg_dim, label=f'{n_true_neg} true negative{"s" if n_true_neg != 1 else ""}', markersize=15, markeredgewidth=1.5, markeredgecolor=c_neg if highlight_neg else c_neg_dim),
+        plt.Line2D([0], [0], marker='.', linestyle='', color=c_neg if highlight_pos else c_neg_dim, label=f'{n_false_pos} false positive{"s" if n_false_pos != 1 else ""}', markersize=15, markeredgewidth=1.5, markeredgecolor=c_pos if highlight_pos else c_pos_dim)
+    ]
+    ax.legend(handles=legend_elements, ncol=4, loc="upper center", borderaxespad=-1.5)
+    ax.set_title(f'Total: {total}', y=1.05)
 
-#my_tooltip {
-    position: absolute;
-    width: 240px;
-    opacity: 0;
-    background-color: #386fb0;
-    color: #fffffb;
-    border-radius: 5px;
-    padding: 12px;
-    box-shadow: 3px 3px 2px #ddd;
-    text-align: center;
-    pointer-events: none;
-}
+def update_labels(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text):
+    def f(change):
+        plot(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text)
+    return f
 
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
+def update_p_pos(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text):
+    def f(change):
+        global p_pos
+        p_pos = change['new'] / 100
+        plot(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text)
+    return f
 
-input[type=number] {
-    -moz-appearance: textfield;
-}
+def update_p_false_pos(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text):
+    def f(change):
+        global p_false_pos
+        p_false_pos = change['new'] / 100
+        plot(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text)
+    return f
 
-.pc_input {
-    border: none;
-    display: inline;
-    font-family: inherit;
-    font-size: 14pt;
-    padding: none;
-    width: 45px;
-    margin-left: 5px;
-    text-align: right;
-}
-</style>'''
+def update_p_false_neg(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text):
+    def f(change):
+        global p_false_neg
+        p_false_neg = change['new'] / 100
+        plot(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text)
+    return f
 
-# load English language model (mid size)
+def update_highlight_pos(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text):
+    def f(change):
+        global highlight_pos
+        highlight_pos = not highlight_pos
+        plot(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text)
+    return f
+
+def update_highlight_neg(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text):
+    def f(change):
+        global highlight_neg
+        highlight_neg = not highlight_neg
+        plot(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text)
+    return f
+
 nlp = spacy.load('en_core_web_md')
 
 def getInfo(text):
@@ -139,143 +165,48 @@ def statementify(question, negate=False):
         return 'the answer to "%s" is no'%question if negate else 'the answer to "%s" is yes'%question
     return ' '.join(text_new)
 
-def bayes(prior, true_pos_rate, false_pos_rate, pos):
-    '''
-    Calculate the updated posterior given a prior and true/false positive rates of the test.
-    '''
-    if pos:
-        return prior * true_pos_rate / (prior * true_pos_rate + (1 - prior) * false_pos_rate)
-    else:
-        return prior * (1 - true_pos_rate) / (prior * (1 - true_pos_rate) + (1 - prior) * (1 - false_pos_rate))
+q1_label = widgets.Label(value='What is the question you are trying to answer?')
+q1_text = widgets.Text(placeholder='e.g. Do I have Covid? Is Jack the Killer?')
+q2_label = widgets.Label(value='What is the test you are performing?')
+q2_text = widgets.Text(placeholder='e.g. PCR test')
+run_button = widgets.Button(description='Update demo')
+questions_hbox = widgets.HBox([
+    widgets.VBox([q1_label, q1_text]),
+    widgets.VBox([q2_label, q2_text]),
+    run_button
+], layout={'display': 'flex', 'align_items': 'flex-end'})
+p_pos_slider = widgets.FloatSlider(value=50, min=0, max=100, step=0.1, description='Prior probability %', readout=True, readout_format='.1f', layout={'width': '400px'}, style={'description_width': '150px'})
+p_pos_label = widgets.Label(value='')
+p_pos_hbox = widgets.HBox([p_pos_slider, p_pos_label])
+p_false_pos_slider = widgets.FloatSlider(value=10, min=0, max=100, step=0.1, description='False positive rate %', readout=True, readout_format='.1f', layout={'width': '400px'}, style={'description_width': '150px'})
+p_false_pos_label = widgets.Label(value='')
+p_false_pos_hbox = widgets.HBox([p_false_pos_slider, p_false_pos_label])
+p_false_neg_slider = widgets.FloatSlider(value=10, min=0, max=100, step=0.1, description='False negative rate %', readout=True, readout_format='.1f', layout={'width': '400px'}, style={'description_width': '150px'})
+p_false_neg_label = widgets.Label(value='')
+p_false_neg_hbox = widgets.HBox([p_false_neg_slider, p_false_neg_label])
+ppv_label = widgets.Label(value='')
+npv_label = widgets.Label(value='')
+highlight_pos_toggle = widgets.ToggleButton(value=True, description='Show positive tests')
+highlight_neg_toggle = widgets.ToggleButton(value=True, description='Show negative tests')
+ppv_hbox = widgets.HBox([highlight_pos_toggle, ppv_label])
+npv_hbox = widgets.HBox([highlight_neg_toggle, npv_label])
+output = widgets.Output()
 
-def toJS(q1, q2):
-    q1 = 'Does this koala have KOALA-21?' if q1 == '' else q1
-    q2 = 'test' if q2 == '' else q2
-    statement = statementify(q1)
-    statement_neg = statementify(q1, negate=True)
-    test = q2
-    to_js = dict(statement=statement, statement_neg=statement_neg, test=test)
-    with open('base_rate.json', 'w') as f:
-        f.write(json.dumps(to_js))
+plt.rc('axes.spines', top=False, bottom=False, left=False, right=False)
+fig, ax = plt.subplots(figsize=(10, 6))
+fig.canvas.toolbar_visible = False
+fig.canvas.header_visible = False
+fig.canvas.footer_visible = False
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+ax.set_aspect('equal', 'box')
+plot(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text)
+plt.tight_layout()
+run_button.on_click(update_labels(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text))
+p_pos_slider.observe(update_p_pos(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
+p_false_pos_slider.observe(update_p_false_pos(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
+p_false_neg_slider.observe(update_p_false_neg(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
+highlight_pos_toggle.observe(update_highlight_pos(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
+highlight_neg_toggle.observe(update_highlight_neg(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
 
-class BayesQuestion:
-    def __init__(self, textbox, previous, submit_callback, back=True):
-        self.displayed = False
-        self.label = wd.HTMLMath(value='')
-        self.textbox = textbox
-        self.submit = wd.Button(description='Next')
-        self.submit.on_click(self.submitCallback)
-        self.back = wd.Button(description='back')
-        self.back.on_click(self.backCallback)
-        row = [self.textbox, self.submit, self.back] if back else [self.textbox, self.submit]
-        self.vbox = wd.VBox([self.label, wd.HBox(row)])
-        self.previous = previous
-        self.submit_callback = submit_callback
-
-    def display(self, label):
-        self.label.value = r'<span style="font-size:16px">' + label + r'</span>'
-        if not self.displayed:
-            display(self.vbox)
-            self.displayed = True
-        else:
-            self.vbox.layout.display = 'block'
-
-    def disable(self):
-        for w in [self.textbox, self.submit, self.back]:
-            w.disabled = True
-
-    def enable(self):
-        for w in [self.textbox, self.submit, self.back]:
-            w.disabled = False
-
-    def hide(self):
-        self.vbox.layout.display = 'none'
-
-    def submitCallback(self, sender=None):
-        self.disable()
-        self.submit_callback()
-
-    def backCallback(self, sender=None):
-        self.hide()
-        self.previous.enable()
-
-class BayesResult:
-    def __init__(self, previous, restart_callback):
-        self.displayed = False
-        self.label = wd.HTMLMath(value='')
-        self.restart = wd.Button(description='Start over')
-        self.restart.on_click(self.restartCallback)
-        self.back = wd.Button(description='Back')
-        self.back.on_click(self.backCallback)
-        self.vbox = wd.VBox([self.label, wd.HBox([self.restart, self.back])])
-        self.previous = previous
-        self.restart_callback = restart_callback
-
-    def display(self, label):
-        self.label.value = r'<span style="font-size:16px">' + label + r'</span>'
-        if not self.displayed:
-            display(self.vbox)
-            self.displayed = True
-        else:
-            self.vbox.layout.display = 'block'
-
-    def hide(self):
-        self.vbox.layout.display = 'none'
-
-    def backCallback(self, sender=None):
-        self.hide()
-        self.previous.enable()
-
-    def restartCallback(self, sender=None):
-        self.hide()
-        self.restart_callback()
-
-class BayesForm:
-    def __init__(self):
-        self.q1 = BayesQuestion(wd.Text(), None, self.q1Submit, back=False)
-        self.q2 = BayesQuestion(wd.BoundedFloatText(value=0.5, min=0, max=1, step=0.001), self.q1, self.q2Submit)
-        self.q3 = BayesQuestion(wd.Text(), self.q2, self.q3Submit)
-        self.q4 = BayesQuestion(wd.BoundedFloatText(value=0.5, min=0, max=1, step=0.001), self.q3, self.q4Submit)
-        self.q5 = BayesQuestion(wd.BoundedFloatText(value=0.5, min=0, max=1, step=0.001), self.q4, self.q5Submit)
-        self.q6 = BayesQuestion(wd.RadioButtons(options=['Positive (B)', 'Negative (¬B)']), self.q5, self.q6Submit)
-        self.result = BayesResult(self.q6, self.restart)
-        self.q1.display(r'What is the question you are trying to answer? (E.g. Do I have Covid? Is Jack the killer?)<br />We will call this $A$ if yes and $\neg A$ if no.')
-
-    def q1Submit(self):
-        self.statement = statementify(self.q1.textbox.value)
-        self.q2.display('Without performing any further tests, what is the prior probability that ' + self.statement + '?<br />$P(A)$')
-
-    def q2Submit(self):
-        self.q3.display(r'What is the test you are performing? (E.g. PCR test, smoke detector.)<br />We will call this $B$ if positive and $\neg B$ if negative.')
-
-    def q3Submit(self):
-        self.q4.display('If ' + self.statement + ', how likely would the ' + self.q3.textbox.value + r' correctly turn up positive?<br />$\text{True positive rate} = P(B|A) = 1-P(\neg B|A) = 1 - \text{False negative rate}$')
-
-    def q4Submit(self):
-        text = statementify(self.q1.textbox.value, negate=True)
-        self.q5.display('If ' + text + ', how likely would the ' + self.q3.textbox.value + r' correctly turn up negative?<br />$\text{True negative rate} = P(\neg B|\neg A) = 1-P(B|\neg A) = 1 - \text{False positive rate}$')
-
-    def q5Submit(self):
-        self.q6.display('What is the actual result of the ' + self.q3.textbox.value + '?')
-
-    def q6Submit(self):
-        prior = self.q2.textbox.value
-        true_pos_rate = self.q4.textbox.value
-        false_pos_rate = 1-self.q5.textbox.value
-        pos = self.q6.textbox.value == 'Positive (B)'
-        bayes_val = bayes(prior, true_pos_rate, false_pos_rate, pos)
-        PBA = '{:.3f}'.format(self.q4.textbox.value)
-        PA = '{:.3f}'.format(self.q2.textbox.value)
-        PBnA = '(1 - {:.3f})'.format(self.q5.textbox.value)
-        PnA = '(1 - {:.3f})'.format(self.q2.textbox.value)
-        pos_expr = r'P(A|B) = \frac{P(B|A)P(A)}{P(B|A)P(A) + P(B|\neg A)P(\neg A)} = \frac{' + PBA + r' \times ' + PA + '}{' + PBA + r' \times ' + PA + ' + ' + PBnA + r' \times ' + PnA + '}'
-        PnBA = '(1 - {:.3f})'.format(self.q4.textbox.value)
-        PnBnA = '{:.3f}'.format(self.q5.textbox.value)
-        neg_expr = r'P(A|\neg B) = \frac{P(\neg B|A)P(A)}{P(\neg B|A)P(A) + P(\neg B|\neg A)P(\neg A)} = \frac{' + PnBA + r' \times ' + PA + '}{' + PnBA + r' \times ' + PA + ' + ' + PnBnA + r' \times ' + PnA + '}'
-        expr = pos_expr if pos else neg_expr
-        self.result.display('Knowing the test result, the probability that ' + self.statement + ' is<br />$$' + expr + ' = {:.3f}.$$'.format(bayes_val))
-
-    def restart(self, sender=None):
-        self.q6.enable()
-        for q in [self.q6, self.q5, self.q4, self.q3, self.q2]:
-            q.backCallback()
+display.display(questions_hbox, p_pos_hbox, p_false_pos_hbox, p_false_neg_hbox, ppv_hbox, npv_hbox, output)
