@@ -10,6 +10,12 @@ import mplcursors
 from matplotlib.ticker import AutoMinorLocator
 from datetime import datetime, timedelta
 
+'''
+Write in tips on the few things that need to be edited. 
+1. If you want to chnage magic number. 
+2. Make sure nothing is hard coded 
+
+'''
 
 # Models used through out the lab, with the scipy's curvefit
 def linear_model(x, a, b):
@@ -524,8 +530,8 @@ def plotAllData():
     
 def plotMonths():
     plt.figure(figsize=(10, 3))
-    xdata_trunc = all_xdata[:150]
-    ydata_trunc = all_ydata[:150]
+    xdata_trunc = all_xdata[:100]
+    ydata_trunc = all_ydata[:100]
     plt.plot(xdata_trunc, ydata_trunc, '.')
   
     model_ydata = tilted_cosine(all_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
