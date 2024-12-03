@@ -507,6 +507,7 @@ def plotMockWeeklyDeathsWithButton(): ## remove the ax object b/c was causing pl
     b.on_click(plotMockWeeklyDeaths(output, expected_deaths))
     display(b, output)
     
+####### POST REVEAL #######
     
 def plotAllData():
     plt.figure(figsize=(10, 4))
@@ -521,45 +522,38 @@ def plotAllData():
     plt.legend()
     plt.show()
     
-
 def plotMonths():
-    plt.figure(figsize=(10, 4))
-    plt.plot(all_xdata, all_ydata, '.', label='Pre Signal')
-    
-    post_points = all_xdata >= 1904
-    plt.plot(all_xdata[post_points], all_ydata[post_points], '.', color='red', label='COVID Period')
-    
+    plt.figure(figsize=(10, 3))
+    xdata_trunc = all_xdata[:150]
+    ydata_trunc = all_ydata[:150]
+    plt.plot(xdata_trunc, ydata_trunc, '.')
+  
     model_ydata = tilted_cosine(all_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
-    plt.plot(all_xdata, model_ydata, color="black", label='Model')
+    plt.plot(xdata_trunc, model_ydata[:150], color="black", label='Model')
+
+    
     start_date = pd.to_datetime('2015-01-10')
     
     # create month labels for jan and july of each year
-    total_days = int(all_xdata[-1]) + 1  # Total days from 0 to the last day in all_xdata
+    total_days = int(xdata_trunc[-1]) + 1
     x_labels = []
     tick_positions = []
 
     end_date = start_date + pd.Timedelta(days=total_days - 1)
 
     for year in range(start_date.year, end_date.year + 1):
-        jan_date = pd.to_datetime(f'{year}-01-01')
-        if (jan_date - start_date).days >= 0 and (jan_date - start_date).days < total_days:
-            x_labels.append(jan_date.strftime('%b %Y'))
-            tick_positions.append((jan_date - start_date).days)
-
-        jul_date = pd.to_datetime(f'{year}-07-01')
-        if (jul_date - start_date).days >= 0 and (jul_date - start_date).days < total_days:
-            x_labels.append(jul_date.strftime('%b %Y'))
-            tick_positions.append((jul_date - start_date).days)
+        for month in range(1, 13):  # Iterate through all months (1 to 12)
+            month_date = pd.to_datetime(f'{year}-{month:02d}-01')
+            if (month_date - start_date).days >= 0 and (month_date - start_date).days < total_days:
+                x_labels.append(month_date.strftime('%b %Y'))
+                tick_positions.append((month_date - start_date).days)
 
     plt.xticks(ticks=tick_positions, labels=x_labels, rotation=45)
 
     plt.xlabel('Time (in Days)')
     plt.ylabel('Value')
     plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
+    plt.show() 
 
     
 ####### ALL DATA #######
