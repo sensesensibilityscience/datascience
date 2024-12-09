@@ -30,6 +30,11 @@ def gaussian_model(x, a, b, c, d):
 def cosine_model(x, a, b, c, d):
     return a * np.cos(b * x + c) + d
 
+def tilted_cosine(x, A, T, x0, B, C):
+    return A * np.cos(2*np.pi/T * (x - x0)) + B*x + C
+
+
+# crop data
 excessdeaths = pd.read_csv("weekly_counts_of_deaths_cleaned.csv")
 excessdeaths['Week Ending Date'] = pd.to_datetime(excessdeaths['Week Ending Date'])    
 end_of_2019 = pd.to_datetime('2020-01-01')
@@ -62,12 +67,15 @@ threshold_ydata = np.asarray(threshold_ydata)
 threshold_y_fit = linear_model(threshold_xdata, m_fit, c_fit)
 
 
+# controls old/new data distinction (TO DO: apply beyond the line) 
+threshold_cutoff = len(threshold_xdata) - 3
 
 # cutoff used for pre-lab portion
 right_lim = 140
 left_lim = 75
 all_data_linear_fit = [0, 0]
 
+# dataframe with x, y for student view 
 timeseries_data = pd.DataFrame({
     'time': xdata,
     'value': ydata
@@ -75,22 +83,16 @@ timeseries_data = pd.DataFrame({
 
 parameters = []
 
-def get_data():
-    return timeseries_data
-
 ####### MODEL PARAMTER WIDGETS #######
 
-def cosine_linear_widget():
-    def cos__linear_function(x, A, T, C, D, linear_B):
-        return A * np.cos((2 * np.pi / T) * (x - C)) + linear_B * x + D
-    
+def cosine_linear_widget():   
     def plot_cos_lin(A=1, T=1000, C=0, D=0, linear_B=0):
         x = np.linspace(0, 1800, 200)
-        y = cos__linear_function(x, A, T, C, D, linear_B)
+        y = tilted_cosine(x, A, T, C, linear_B, D)
         
         plt.figure(figsize=(10, 4))
         plt.scatter(xdata, ydata, s= 4, c='gray', alpha=0.5, label='original data')
-        plt.plot(x, y, label=f'cosine function: A={A}, T={T}, C={C}, D={D}, B={linear_B}')
+        plt.plot(x, y, label=f'cosine function: A={A}, T={T}, x_0={C}, D={D}, B={linear_B}')
         
         plt.xlabel('time')
         plt.ylabel('value')
@@ -102,10 +104,10 @@ def cosine_linear_widget():
     A_slider = FloatSlider(min=0, max=10000, step=10, readout_format='.0f', description='amplitude')
     T_slider = FloatSlider(min=1, max=500, step=1, readout_format='.1f', description='period')
     x0_slider = FloatSlider(min=-50, max=50, step=0.1, readout_format='.1f', description='phase shift')
-    B_slider = FloatSlider(min=-5, max=5, step=0.1, readout_format='.1f', description='slope')
     D_slider = FloatSlider(min=20000, max=75000, step=1, readout_format='.0f', description='vertical shift')
+    B_slider = FloatSlider(min=-5, max=5, step=0.1, readout_format='.1f', description='slope')
 
-    # Creating the interactive widget
+
     interact(plot_cos_lin, A=A_slider, T=T_slider, C=x0_slider, D=D_slider, linear_B=B_slider)
     
 
@@ -123,17 +125,10 @@ def linear_widget():
     slope=FloatSlider(value=1.0, min=-5.0, max=5.0, step=0.01, description='Slope'),
     intercept=IntSlider(value=0.0, min=30000, max=70000, step=1.0, description='Intercept'));
 
-def get_all_data():
-    all_xdata = (excessdeaths['Week Ending Date'] - excessdeaths['Week Ending Date'].min()).dt.days
-    all_ydata = excessdeaths['Number of Deaths'].values 
-    all_xdata = np.asarray(all_xdata)
-    all_ydata = np.asarray(all_ydata)
-    return all_xdata, all_ydata
-
 def get_pre_lab_data(start, stop):
-    df = get_data() # 85, 130
-    x = np.array(df["time"][start:stop])
-    y = np.array(df["value"][start:stop])
+    x = xdata[start:stop]
+    y = ydata[start:stop]
+    
     #setting scales to start at 0 
     x_min = np.min(x)
     y_min = np.min(y)
@@ -197,7 +192,6 @@ def fit_pre_lab_models():
     return linear_params, quadratic_params, gaussian_params, cosine_params
 
 
-
 def fits(start, stop):
     x, y = get_pre_lab_data(left_lim, right_lim)
     
@@ -240,7 +234,7 @@ def expanded_plot():
     axs[0, 0].set_xlabel('time')
     axs[0, 0].set_ylabel('value')
     axs[0, 0].set_ylim(40000, 70000)
-    axs[0, 0].axvspan(280, 525, color='gray', alpha=0.1)  # change these value to by dynamic
+    axs[0, 0].axvspan(280, 525, color='gray', alpha=0.1)  # change these value to by dynamic / non-magic numbers 
 
     
     axs[0, 1].plot(x_plot, y_plot, 'o')
@@ -273,7 +267,6 @@ def expanded_plot():
     plt.show
 
 def plot_linear_cosine(left, right, extension_periods=2):
-    # x_fit, y_fit = get_pre_lab_data(75, 100)
     x_plot, y_plot = get_pre_lab_data(40, right_lim)
 
     linear_params,quadratic_params,gaussian_params,cosine_params, = fits(75, 130)
@@ -359,12 +352,17 @@ def plot_cos_lin_all(deviation):
     upper_bound = threshold_y_fit_cos_lin + deviation
     
     percent_within_band = int(np.sum(inside_band) / len(threshold_xdata) * 100)
+    
+    
 
 
     plt.plot(threshold_xdata, threshold_y_fit_cos_lin, label=f'Tilted Cosine Fit\n(y = {A_fit:.2f}cos(2π/{T_fit:.2f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.2f})', color='black')
 
     plt.scatter(threshold_xdata[inside_band], threshold_ydata[inside_band], color='blue', label='Within band', s=10)
     plt.scatter(threshold_xdata[outside_band], threshold_ydata[outside_band], color='red', label='Outside band', s=20)
+    
+    x_cutoff = threshold_xdata[threshold_cutoff]
+    plt.axvline(x=x_cutoff, color='black', linestyle='--', label='New data', zorder=-1)
     
     # Add annotations of points for students to estimate threshold point
     for time in [1904, 1911, 1918]:
@@ -380,10 +378,6 @@ def plot_cos_lin_all(deviation):
     plt.legend()
     plt.grid(True)
     plt.show()
-    
-#titled cosine function 
-def tilted_cosine(x, A, T, x0, B, C):
-    return A * np.cos(2*np.pi/T * (x - x0)) + B*x + C
 
 def plot_tilted_cosine_ci(deviation):
     popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), 365, 0, 0, np.mean(ydata)])
@@ -442,11 +436,15 @@ def plot_lin_all(deviation):
     plt.scatter(threshold_xdata[outside_band], threshold_ydata[outside_band], color='red', label='Outside band', s=20)
     
     # Add annotations of points for students to estimate threshold point
-    for time in [1904, 1911, 1918]:
+    for time in [1904, 1911, 1918]: #change to be dynamic
         index = list(threshold_xdata).index(time)
         plt.text(threshold_xdata[index], threshold_ydata[index], f'({threshold_xdata[index]}, {threshold_ydata[index]:.2f})', 
                 fontsize=9, ha='right')
 
+        
+    x_cutoff = threshold_xdata[threshold_cutoff]
+    plt.axvline(x=x_cutoff, color='black', linestyle='--', label='New data', zorder=-1)
+        
     # Fill the deviation band area
     plt.xlabel('time (units unknown)')
     plt.ylabel('value')
@@ -522,6 +520,9 @@ def plotAllData():
     plt.plot(all_xdata[post_points], all_ydata[post_points], '.', color='red', label='Pre Signal (COVID Period)')
     model_ydata = tilted_cosine(all_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
     plt.plot(all_xdata, model_ydata, color="black", label='Model')
+    
+    x_cutoff = threshold_xdata[threshold_cutoff]
+    plt.axvline(x=x_cutoff, color='black', linestyle='--', label='New data', zorder=-1)
 
     plt.xlabel('time (in days)')
     plt.ylabel('value')
@@ -530,12 +531,13 @@ def plotAllData():
     
 def plotMonths():
     plt.figure(figsize=(10, 3))
-    xdata_trunc = all_xdata[:100]
-    ydata_trunc = all_ydata[:100]
+    truc_cutoff = 100 
+    xdata_trunc = all_xdata[:truc_cutoff]
+    ydata_trunc = all_ydata[:truc_cutoff]
     plt.plot(xdata_trunc, ydata_trunc, '.')
   
     model_ydata = tilted_cosine(all_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
-    plt.plot(xdata_trunc, model_ydata[:150], color="black", label='Model')
+    plt.plot(xdata_trunc, model_ydata[:truc_cutoff], color="black", label='Model')
 
     
     start_date = pd.to_datetime('2015-01-10')
