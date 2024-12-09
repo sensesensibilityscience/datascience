@@ -356,7 +356,7 @@ def plot_cos_lin_all(deviation):
     
 
 
-    plt.plot(threshold_xdata, threshold_y_fit_cos_lin, label=f'Tilted Cosine Fit\n(y = {A_fit:.2f}cos(2π/{T_fit:.2f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.2f})', color='black')
+    plt.plot(threshold_xdata, threshold_y_fit_cos_lin, color='black')
 
     plt.scatter(threshold_xdata[inside_band], threshold_ydata[inside_band], color='blue', label='Within band', s=10)
     plt.scatter(threshold_xdata[outside_band], threshold_ydata[outside_band], color='red', label='Outside band', s=20)
@@ -515,9 +515,9 @@ def plotMockWeeklyDeathsWithButton(): ## remove the ax object b/c was causing pl
     
 def plotAllData():
     plt.figure(figsize=(10, 4))
-    plt.plot(all_xdata, all_ydata, '.', label='Pre Signal')
+    plt.plot(all_xdata, all_ydata, '.', label='Pre signal')
     post_points = all_xdata >= 1904
-    plt.plot(all_xdata[post_points], all_ydata[post_points], '.', color='red', label='Pre Signal (COVID Period)')
+    plt.plot(all_xdata[post_points], all_ydata[post_points], '.', color='red', label='Post signal (COVID Period)')
     model_ydata = tilted_cosine(all_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
     plt.plot(all_xdata, model_ydata, color="black", label='Model')
     
