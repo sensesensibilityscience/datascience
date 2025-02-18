@@ -27,7 +27,6 @@ Experiment
 * intervention
 '''
 
-# TODO: assignment(config=) change format config to {'group_name': '1-500'} (but maybe a list of dicts is better for preserving ordering)
 # TODO: assignment string must be within the total number of samples
 # TODO: assignment mustn't have overlapping groups
 
@@ -180,6 +179,7 @@ class Experiment:
         self.network = network
         self.N = len(self.network.init_data)
         self.data = self.network.init_data.copy()
+        self.init_vars = self.data.keys().tolist() + ['Group']
         self.assigned = False # has the assignment step been run
         self.done = False # has the experiment been done
         self.a = None # AssignmentPlot, overwritten when .plotAssignment is run
@@ -220,10 +220,6 @@ class Experiment:
             dialog('Not all samples have been assigned to a group! Please revise your assignments.')
             return
         self.assigned = True
-        if self.a:
-            self.a.updateAssignments()
-        else:
-            self.plotAssignment()
 
     def submitAssignment(self, sender=None):
         '''
@@ -248,7 +244,7 @@ class Experiment:
             dialog('You have not yet assigned any groups! Click on "Visualise assignment" before running this box.')
             return
         disable = self.network.nodes.keys() if disable == 'all' else disable
-        self.intervention_setting = InterventionSetting(self, show=show, disable=disable)
+        self.intervention_setting = InterventionSetting(self, show=show, disable=disable, disable_submit=config is not None)
         if config is not None:
             self.intervention_setting.setIntervention(config)
             self.doExperiment(config)
@@ -264,8 +260,8 @@ class Experiment:
         '''
         # reset the dataframe to just group assignments
         for key in self.data:
-            if key != 'Group':
-                self.data.drop(key, axis=1)
+            if key not in self.init_vars:
+                self.data.drop(key, axis=1, inplace=True)
         for g in intervention:
             group = g['name']
             inter = g['intervention']
@@ -346,7 +342,7 @@ class GroupAssignment:
         self.randomise_button = wd.Button(description='Randomise assignment', layout=wd.Layout(width='180px'))
         self.group_assignments = [SingleGroupAssignment(1)]
         self.add_group_button = wd.Button(description='Add another group')
-        self.submit_button = wd.Button(description='Visualise assignment')
+        self.submit_button = wd.Button(description='Save assignments')
         self.box = wd.VBox([g.box for g in self.group_assignments])
         display(self.randomise_button, self.box, self.add_group_button, self.submit_button)
         self.randomise_button.on_click(self.randomise)
@@ -428,10 +424,10 @@ class SingleGroupAssignment:
         self.samples.disabled = True
 
 class InterventionSetting:
-    def __init__(self, experiment, show='all', disable=[]):
+    def __init__(self, experiment, show='all', disable=[], disable_submit=False):
         self.experiment = experiment
         self.group_settings = [SingleGroupInterventionSetting(self.experiment, g, len(self.experiment.data.loc[self.experiment.data['Group'] == g].index), show=show, disable=disable) for g in self.experiment.groups]
-        submit = wd.Button(description='Perform experiment')
+        submit = wd.Button(description='Perform experiment', disabled=disable_submit)
         display(submit)
         submit.on_click(self.submit)
 
@@ -686,8 +682,7 @@ class OrchardPlot:
         self.g = go.FigureWidget(data=traces, layout=go_layout)
         
     def display(self):
-        container = wd.HBox([self.textbox])
-        display(wd.VBox([container, self.g]))
+        display(self.textbox, self.g)
 
 class InteractivePlot:
     '''
@@ -705,7 +700,7 @@ class InteractivePlot:
                     self.y_options.remove(i)
         self.x_options.sort()
         self.y_options.sort()
-        self.y_options += ['None (Distributions Only)']
+        # self.y_options += ['None (Distributions Only)']
         self.textbox1 = wd.Dropdown(
             description='x-Axis Variable: ',
             value=self.x_options[0],
@@ -727,8 +722,7 @@ class InteractivePlot:
 
     def display(self):
         container = wd.HBox([self.textbox1, self.textbox2])
-        display(wd.VBox([container, self.g]))
-        display(self.button)
+        display(container, self.g, self.button)
         display(Nothing(), display_id='1')
         self.button.layout.display = 'none'
     
@@ -829,7 +823,7 @@ class InteractivePlot:
         '''
         Returns the appropriate trace type given the variables X and Y according to their variable types
         '''
-        if y == 'None (Distributions Only)':
+        if x == y:
             return 'histogram'
         xType, yType = type(self.experiment.network.nodes[x]).__name__, type(self.experiment.network.nodes[y]).__name__
         if xType != 'CategoricalNode' and yType != 'CategoricalNode':
@@ -865,7 +859,7 @@ class InteractivePlot:
         self.button.layout.display = 'flex'
 
     def validate(self):
-        return self.textbox1.value in self.x_options and self.textbox2.value in (self.x_options + ['None (Distributions Only)'])
+        return self.textbox1.value in self.x_options and self.textbox2.value in self.x_options
 
     def response(self, change):
         '''
