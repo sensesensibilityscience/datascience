@@ -3,12 +3,14 @@ import ipywidgets as widgets
 from ipywidgets import interact, FloatSlider, IntSlider
 import numpy as np
 import warnings
+import matplotlib
 import matplotlib.pyplot as plt
 import plotly.express as px
 from scipy.optimize import curve_fit
-import mplcursors
+# import mplcursors
 from matplotlib.ticker import AutoMinorLocator
 from datetime import datetime, timedelta
+from IPython.display import display
 
 '''
 Write in tips on the few things that need to be edited. 
@@ -45,6 +47,7 @@ xdata = (excessdeaths_2015_to_2019['Week Ending Date'] - excessdeaths_2015_to_20
 ydata = excessdeaths_2015_to_2019['Number of Deaths'].values 
 xdata = np.asarray(xdata)
 ydata = np.asarray(ydata)
+training_xdata_cutoff = len(xdata) # renamed from threshold_cutoff
 
 # linear model from shortened data
 popt, _ = curve_fit(linear_model, xdata, ydata)
@@ -55,7 +58,7 @@ all_xdata = (excessdeaths['Week Ending Date'] - excessdeaths['Week Ending Date']
 all_ydata = excessdeaths['Number of Deaths'].values 
 all_xdata = np.asarray(all_xdata)
 all_ydata = np.asarray(all_ydata)
-y_fit = linear_model(all_xdata, m_fit, c_fit)
+all_y_fit = linear_model(all_xdata, m_fit, c_fit)
 
 # shortened data with two extra points; for investigating threshold 
 last_point_threshold = pd.to_datetime('2020-04-15')
@@ -65,10 +68,6 @@ threshold_ydata = excessdeaths_threshold['Number of Deaths'].values
 threshold_xdata = np.asarray(threshold_xdata)
 threshold_ydata = np.asarray(threshold_ydata)
 threshold_y_fit = linear_model(threshold_xdata, m_fit, c_fit)
-
-
-# controls old/new data distinction (TO DO: apply beyond the line) 
-threshold_cutoff = len(threshold_xdata) - 3
 
 # cutoff used for pre-lab portion
 right_lim = 140
@@ -92,10 +91,10 @@ def cosine_linear_widget():
         
         plt.figure(figsize=(10, 4))
         plt.scatter(xdata, ydata, s= 4, c='gray', alpha=0.5, label='original data')
-        plt.plot(x, y, label=f'cosine function: A={A}, T={T}, x_0={C}, D={D}, B={linear_B}')
+        plt.plot(x, y)
         
-        plt.xlabel('time')
-        plt.ylabel('value')
+        plt.xlabel('Time')
+        plt.ylabel('Value')
         plt.legend()
         plt.grid(True)
         plt.show()
@@ -107,23 +106,26 @@ def cosine_linear_widget():
     D_slider = FloatSlider(min=20000, max=75000, step=1, readout_format='.0f', description='vertical shift')
     B_slider = FloatSlider(min=-5, max=5, step=0.1, readout_format='.1f', description='slope')
 
-
     interact(plot_cos_lin, A=A_slider, T=T_slider, C=x0_slider, D=D_slider, linear_B=B_slider)
-    
 
 def linear_widget():
+    fig, ax = plt.subplots(figsize=(10, 4))
+    slope_init = 0.
+    intercept_init = 30000.
+    
     def plot_linear(slope, intercept):
-        plt.figure(figsize=(10, 4))
-
-        plt.scatter(xdata, ydata,)
-
         yfit = slope * xdata + intercept
-        plt.plot(xdata, yfit, color='red', label=f'Fitted Model: y = {slope:.2f}x + {intercept:.2f}')
-        plt.show()
+        ax.clear()
+        ax.scatter(xdata, ydata)
+        ax.plot(xdata, yfit, color='red', label=f'Fitted model: y = {slope:.2f}x + {intercept:.0f}')
+        ax.legend()
+        ax.set_xlabel('Time (units unknown)')
+        ax.set_ylabel('Value')
 
     interact(plot_linear,
-    slope=FloatSlider(value=1.0, min=-5.0, max=5.0, step=0.01, description='Slope'),
-    intercept=IntSlider(value=0.0, min=30000, max=70000, step=1.0, description='Intercept'));
+        slope=FloatSlider(value=slope_init, min=-5.0, max=5.0, step=0.01, description='Slope'),
+        intercept=IntSlider(value=intercept_init, min=30000, max=70000, step=10.0, description='Vertical shift')
+        )
 
 def get_pre_lab_data(start, stop):
     x = xdata[start:stop]
@@ -166,30 +168,30 @@ def fit_pre_lab_models():
     axs[0, 0].plot(x, y, 'o')
     axs[0, 0].plot(x_fit, y_linear_fit, '-', label='Linear Fit')
     axs[0, 0].set_title('Linear')
-    axs[0, 0].set_xlabel('time')
-    axs[0, 0].set_ylabel('value')
+    axs[0, 0].set_xlabel('Time')
+    axs[0, 0].set_ylabel('Value')
     
     axs[0, 1].plot(x, y, 'o')
     axs[0, 1].plot(x_fit, y_quadratic_fit, '-', label='Quadratic Fit')
     axs[0, 1].set_title('Quadratic')
-    axs[0, 1].set_xlabel('time')
-    axs[0, 1].set_ylabel('value')
+    axs[0, 1].set_xlabel('Time')
+    axs[0, 1].set_ylabel('Value')
     
     axs[1, 0].plot(x, y, 'o')
     axs[1, 0].plot(x_fit, y_gaussian_fit, '-', label='Gaussian Fit')
     axs[1, 0].set_title('Gaussian')
-    axs[1, 0].set_xlabel('time')
-    axs[1, 0].set_ylabel('value')
+    axs[1, 0].set_xlabel('Time')
+    axs[1, 0].set_ylabel('Value')
     
     axs[1, 1].plot(x, y, 'o')
     axs[1, 1].plot(x_fit, y_cosine_fit, '-', label='Cosine Fit')
     axs[1, 1].set_title('Cosine')
-    axs[1, 1].set_xlabel('time')
-    axs[1, 1].set_ylabel('value')
+    axs[1, 1].set_xlabel('Time')
+    axs[1, 1].set_ylabel('Value')
     
     plt.tight_layout()
-    plt.show()
-    return linear_params, quadratic_params, gaussian_params, cosine_params
+    # plt.show()
+    # return linear_params, quadratic_params, gaussian_params, cosine_params
 
 
 def fits(start, stop):
@@ -231,8 +233,8 @@ def expanded_plot():
     axs[0, 0].plot(x_plot, y_plot, 'o')
     axs[0, 0].plot(x_fit_expanded, y_linear_fit, '-')
     axs[0, 0].set_title('Linear')
-    axs[0, 0].set_xlabel('time')
-    axs[0, 0].set_ylabel('value')
+    axs[0, 0].set_xlabel('Time')
+    axs[0, 0].set_ylabel('Value')
     axs[0, 0].set_ylim(40000, 70000)
     axs[0, 0].axvspan(280, 525, color='gray', alpha=0.1)  # change these value to by dynamic / non-magic numbers 
 
@@ -240,8 +242,8 @@ def expanded_plot():
     axs[0, 1].plot(x_plot, y_plot, 'o')
     axs[0, 1].plot(x_fit_expanded, y_quadratic_fit, '-')
     axs[0, 1].set_title('Quadratic')
-    axs[0, 1].set_xlabel('time')
-    axs[0, 1].set_ylabel('value')
+    axs[0, 1].set_xlabel('Time')
+    axs[0, 1].set_ylabel('Value')
     axs[0, 1].set_ylim(40000, 70000)
     axs[0, 1].axvspan(280, 525, color='gray', alpha=0.1) 
 
@@ -249,8 +251,8 @@ def expanded_plot():
     axs[1, 0].plot(x_plot, y_plot, 'o')
     axs[1, 0].plot(x_fit_expanded, y_gaussian_fit, '-')
     axs[1, 0].set_title('Gaussian')
-    axs[1, 0].set_xlabel('time')
-    axs[1, 0].set_ylabel('value')
+    axs[1, 0].set_xlabel('Time')
+    axs[1, 0].set_ylabel('Value')
     axs[1, 0].set_ylim(40000, 70000)
     axs[1, 0].axvspan(280, 525, color='gray', alpha=0.1)
 
@@ -258,13 +260,13 @@ def expanded_plot():
     axs[1, 1].plot(x_plot, y_plot, 'o')
     axs[1, 1].plot(x_fit_expanded, y_cosine_fit, '-')
     axs[1, 1].set_title('Cosine')
-    axs[1, 1].set_xlabel('time')
-    axs[1, 1].set_ylabel('value')
+    axs[1, 1].set_xlabel('Time')
+    axs[1, 1].set_ylabel('Value')
     axs[1, 1].set_ylim(40000, 70000)
     axs[1, 1].axvspan(280, 525, color='gray', alpha=0.1)
 
     plt.tight_layout()
-    plt.show
+    # plt.show()
 
 def plot_linear_cosine(left, right, extension_periods=2):
     x_plot, y_plot = get_pre_lab_data(40, right_lim)
@@ -289,30 +291,32 @@ def plot_linear_cosine(left, right, extension_periods=2):
     axs[0].set_ylim(40000, 70000) 
     axs[1].set_ylim(40000, 70000) 
 
-    axs[0].set_xlabel('time')
-    axs[0].set_ylabel('value')
+    axs[0].set_xlabel('Time')
+    axs[0].set_ylabel('Value')
     axs[0].set_title('Linear')
 
     axs[0].grid(True)
 
-    axs[1].set_xlabel('time')
-    axs[1].set_ylabel('value')
+    axs[1].set_xlabel('Time')
+    axs[1].set_ylabel('Value')
     axs[1].set_title('Cosine')
     axs[1].grid(True)
-
-    plt.show()
+    
+    plt.tight_layout()
+    # plt.show()
 
 def plot_lin_band():
-    deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
-    interact(plot_lin_ci, deviation=deviation_slider)
+    popt, _ = curve_fit(linear_model, xdata, ydata)
+    m_fit, c_fit = popt
+    y_fit = linear_model(xdata, m_fit, c_fit)
     
-def plot_lin_ci(deviation):
-        popt, _ = curve_fit(linear_model, xdata, ydata)
-        m_fit, c_fit = popt
-        
-        y_fit = linear_model(xdata, m_fit, c_fit)
-        residuals = np.abs(ydata - y_fit)
-        
+    residuals = np.abs(ydata - y_fit)
+    
+    deviation_init = 100.
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    def plot_lin_ci(deviation):
         inside_band = residuals <= deviation
         outside_band = residuals > deviation
         
@@ -320,21 +324,33 @@ def plot_lin_ci(deviation):
         upper_bound = y_fit + deviation
         
         percent_within_band = int(np.sum(inside_band) / len(xdata) * 100)
-
-
-        plt.figure(figsize=(10, 6))
-        plt.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within deviation', s=10)
-        plt.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside deviation', s=20)
-        plt.plot(xdata, y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.2f})', color='black')
+    
+        ax.clear()
+        ax.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within band', s=10)
+        ax.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside band', s=20)
+        ax.plot(xdata, y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.0f})', color='black')
         
-        plt.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
-                         label=f'Band covers ±{deviation} points ({percent_within_band}% points)')        
-        plt.xlabel('time (units unknown)')
-        plt.ylabel('value')
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+        ax.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
+                         label=f'Band covers {deviation} points ({percent_within_band}%)')
+        ax.legend()
+        ax.set_xlabel('Time (units unknown)')
+        ax.set_ylabel('Value')
+        ax.grid(True)
         
+    deviation_slider = widgets.IntSlider(value=deviation_init, min=0, max=15000, step=10, description='± deviation from model')
+    interact(plot_lin_ci, deviation=deviation_slider)
+    
+def plot_lin_ci(deviation):
+    y_fit = linear_model(xdata, m_fit, c_fit)
+    residuals = np.abs(ydata - y_fit)
+    
+    inside_band = residuals <= deviation
+    outside_band = residuals > deviation
+    
+    lower_bound = y_fit - deviation
+    upper_bound = y_fit + deviation
+    
+    percent_within_band = int(np.sum(inside_band) / len(xdata) * 100)
 
 def plot_cos_lin_all(deviation):
     plt.figure(figsize=(10, 6))
@@ -353,15 +369,12 @@ def plot_cos_lin_all(deviation):
     
     percent_within_band = int(np.sum(inside_band) / len(threshold_xdata) * 100)
     
-    
-
-
     plt.plot(threshold_xdata, threshold_y_fit_cos_lin, color='black')
 
     plt.scatter(threshold_xdata[inside_band], threshold_ydata[inside_band], color='blue', label='Within band', s=10)
     plt.scatter(threshold_xdata[outside_band], threshold_ydata[outside_band], color='red', label='Outside band', s=20)
     
-    x_cutoff = threshold_xdata[threshold_cutoff]
+    x_cutoff = threshold_xdata[training_xdata_cutoff]
     plt.axvline(x=x_cutoff, color='black', linestyle='--', label='New data', zorder=-1)
     
     # Add annotations of points for students to estimate threshold point
@@ -371,8 +384,8 @@ def plot_cos_lin_all(deviation):
                 fontsize=9, ha='right')
 
     # Fill the deviation band area
-    plt.xlabel('time (in days)')
-    plt.ylabel('value')
+    plt.xlabel('Time (in days)')
+    plt.ylabel('Value')
     plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
                          label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
     plt.legend()
@@ -398,23 +411,21 @@ def plot_tilted_cosine_ci(deviation):
     plt.figure(figsize=(10, 6))
     plt.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within deviation', s=10)
     plt.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside deviation', s=20)
-    plt.plot(xdata, y_fit, label=f'Tilted Cosine Fit\n(y = {A_fit:.2f}cos(2π/{T_fit:.2f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.2f})', color='black')
+    plt.plot(xdata, y_fit, label=f'Tilted Cosine Fit\n(y = {A_fit:.2f}cos(2π/{T_fit:.2f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.0f})', color='black')
     
     plt.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
                      label=f'Band covers ±{deviation} ({percent_within_band}% points)')        
-    plt.xlabel('time (units unknown)')
-    plt.ylabel('value')
+    plt.xlabel('Time (units unknown)')
+    plt.ylabel('Value')
     plt.legend()
     plt.grid(True)
     plt.show()
 #     return tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 
-
 def plot_tilted_band():
     ouput = widgets.Output() 
     deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
     interact(plot_tilted_cosine_ci, deviation=deviation_slider)
-
     
 def plot_lin_all(deviation):
     plt.figure(figsize=(10, 6))
@@ -423,14 +434,13 @@ def plot_lin_all(deviation):
 
     inside_band = residuals <= deviation
     outside_band = residuals > deviation
-        
+
     lower_bound = threshold_y_fit - deviation
     upper_bound = threshold_y_fit + deviation
-    
+
     percent_within_band = int(np.sum(inside_band) / len(threshold_xdata) * 100)
 
-
-    plt.plot(threshold_xdata, threshold_y_fit, label=f'Linear Fit (y = {m_fit:.2f}x + {c_fit:.2f})', color='black')
+    plt.plot(threshold_xdata, threshold_y_fit, color='black', label=f'Linear model: y = {m_fit:.2f}x + {c_fit:.0f}')
 
     plt.scatter(threshold_xdata[inside_band], threshold_ydata[inside_band], color='blue', label='Within band', s=10)
     plt.scatter(threshold_xdata[outside_band], threshold_ydata[outside_band], color='red', label='Outside band', s=20)
@@ -438,22 +448,20 @@ def plot_lin_all(deviation):
     # Add annotations of points for students to estimate threshold point
     for time in [1904, 1911, 1918]: #change to be dynamic
         index = list(threshold_xdata).index(time)
-        plt.text(threshold_xdata[index], threshold_ydata[index], f'({threshold_xdata[index]}, {threshold_ydata[index]:.2f})', 
+        plt.text(threshold_xdata[index], threshold_ydata[index], f'({threshold_xdata[index]}, {threshold_ydata[index]:.0f})', 
                 fontsize=9, ha='right')
 
-        
-    x_cutoff = threshold_xdata[threshold_cutoff]
-    plt.axvline(x=x_cutoff, color='black', linestyle='--', label='New data', zorder=-1)
-        
+    x_cutoff = threshold_xdata[training_xdata_cutoff]
+    plt.axvline(x=x_cutoff, color='black', linestyle='--', label='Boundary between modelled data and new data', zorder=-1)
+    
     # Fill the deviation band area
-    plt.xlabel('time (units unknown)')
-    plt.ylabel('value')
+    plt.xlabel('Time (units unknown)')
+    plt.ylabel('Value')
     plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
                          label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
     plt.legend()
     plt.grid(True)
-    plt.show()   
-    
+    plt.show()
     
 popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), 365, 0, 0, np.mean(ydata)])
 A_fit, T_fit, x0_fit, B_fit, C_fit = popt
@@ -524,8 +532,8 @@ def plotAllData():
     x_cutoff = threshold_xdata[threshold_cutoff]
     plt.axvline(x=x_cutoff, color='black', linestyle='--', label='New data', zorder=-1)
 
-    plt.xlabel('time (in days)')
-    plt.ylabel('value')
+    plt.xlabel('Time (in days)')
+    plt.ylabel('Value')
     plt.legend()
     plt.show()
     
