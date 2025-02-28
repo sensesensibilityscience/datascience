@@ -418,7 +418,7 @@ def plot_tilted_band(guesses):
 
         ax.scatter(xdata[inside_band], ydata[inside_band], color='blue', label='Within deviation', s=10)
         ax.scatter(xdata[outside_band], ydata[outside_band], color='red', label='Outside deviation', s=20)
-        ax.plot(xdata, y_fit, label=f'Tilted Cosine Fit\n(y = {A_fit:.2f}cos(2π/{T_fit:.2f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.0f})', color='black')
+        ax.plot(xdata, y_fit, label=f'Tilted Cosine Fit\n(y = {A_fit:.0f}cos(2π/{T_fit:.2f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.0f})', color='black')
 
         ax.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
                          label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
