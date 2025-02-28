@@ -101,11 +101,11 @@ def cosine_linear_widget():
         fig.canvas.draw()
     
     # Creating sliders for each parameter
-    A_slider = FloatSlider(min=0, max=10000, step=10, readout_format='.0f', description='amplitude')
-    T_slider = FloatSlider(min=1, max=500, step=1, readout_format='.1f', description='period')
-    x0_slider = FloatSlider(min=-50, max=50, step=0.1, readout_format='.1f', description='phase shift')
-    D_slider = FloatSlider(min=20000, max=75000, step=1, readout_format='.0f', description='vertical shift')
-    B_slider = FloatSlider(min=-5, max=5, step=0.1, readout_format='.1f', description='slope')
+    A_slider = FloatSlider(min=0, max=10000, step=10, readout_format='.0f', description='A')
+    T_slider = FloatSlider(min=1, max=500, step=1, readout_format='.1f', description='T')
+    x0_slider = FloatSlider(min=-50, max=50, step=0.1, readout_format='.1f', description='x0')
+    D_slider = FloatSlider(min=20000, max=75000, step=1, readout_format='.0f', description='C')
+    B_slider = FloatSlider(min=-5, max=5, step=0.1, readout_format='.1f', description='B')
 
     interact(plot_cos_lin, A=A_slider, T=T_slider, C=x0_slider, D=D_slider, linear_B=B_slider)
 
