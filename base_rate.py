@@ -191,22 +191,3 @@ highlight_neg_toggle = widgets.ToggleButton(value=True, description='Show negati
 ppv_hbox = widgets.HBox([highlight_pos_toggle, ppv_label])
 npv_hbox = widgets.HBox([highlight_neg_toggle, npv_label])
 output = widgets.Output()
-
-plt.rc('axes.spines', top=False, bottom=False, left=False, right=False)
-fig, ax = plt.subplots(figsize=(10, 6))
-fig.canvas.toolbar_visible = False
-fig.canvas.header_visible = False
-fig.canvas.footer_visible = False
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)
-ax.set_aspect('equal', 'box')
-plot(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text)
-plt.tight_layout()
-run_button.on_click(update_labels(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text))
-p_pos_slider.observe(update_p_pos(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
-p_false_pos_slider.observe(update_p_false_pos(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
-p_false_neg_slider.observe(update_p_false_neg(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
-highlight_pos_toggle.observe(update_highlight_pos(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
-highlight_neg_toggle.observe(update_highlight_neg(output, ax, p_pos_label, p_false_pos_label, p_false_neg_label, ppv_label, npv_label, q1_text, q2_text), names='value')
-
-display.display(questions_hbox, p_pos_hbox, p_false_pos_hbox, p_false_neg_hbox, ppv_hbox, npv_hbox, output)
