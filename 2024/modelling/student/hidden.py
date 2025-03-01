@@ -429,7 +429,6 @@ def plot_tilted_band(guesses):
         ax.grid(True)
         fig.canvas.draw() 
 
-    ouput = widgets.Output() 
     deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
     interact(plot_tilted_cosine_ci, deviation=deviation_slider)
     
@@ -476,7 +475,7 @@ residuals = np.abs(ydata - y_fit)
 fit_data_with_tilt = tilted_cosine(xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
 
 
-####### POISSON DEMO #######
+####### BINOMIAL DEMO #######
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -484,46 +483,35 @@ import ipywidgets as widgets
 from IPython.display import display
 from matplotlib.ticker import AutoMinorLocator
 
-def plotMockWeeklyDeaths(output, expected_deaths):
-    plt.close('all')
+def plotMockWeeklyDeaths(total_pop, expected_deaths):
+    fig, ax = plt.subplots(figsize=(6, 4))
+    
     def f(b):
-        with output:
-            output.clear_output(wait=True)
-            random_deaths = np.random.poisson(expected_deaths)
+        random_deaths = np.random.binomial(total_pop, expected_deaths / total_pop)
 
-            plt.figure(figsize=(6, 4))
-            plt.bar(['Expected', 'Random'], [expected_deaths, random_deaths], color=['grey', 'lightblue'])
-            plt.text(1, random_deaths + 2000, f'{random_deaths}', ha='center')
-            plt.text(0, expected_deaths + 2000, f'{expected_deaths}', ha='center')
-            plt.ylabel('Number of Deaths')
-            plt.ylim(0, expected_deaths + 20000)
-            plt.title(f'Weekly Deaths Simulation (expected average is {expected_deaths})')
-            plt.gca().yaxis.set_minor_locator(AutoMinorLocator(10))
-            plt.gca().tick_params(which='both')
-
-            plt.show()
+        ax.clear()
+        ax.bar(['Average', 'Actual random'], [expected_deaths, random_deaths], color=['grey', 'lightblue'])
+        ax.text(1, random_deaths + 2000, f'{random_deaths}', ha='center')
+        ax.text(0, expected_deaths + 2000, f'{expected_deaths}', ha='center')
+        ax.set_ylabel('Number of Deaths')
+        ax.set_ylim(0, expected_deaths + 20000)
+        ax.title(f'Weekly Deaths Simulation (expected average is {expected_deaths})')
+        ax.yaxis.set_minor_locator(AutoMinorLocator(10))
+        ax.tick_params(which='both')
+        fig.canvas.draw()
 
     return f
 
 def plotMockWeeklyDeathsWithButton(): ## remove the ax object b/c was causing plot to update
-    
-    plt.figure(figsize=(6, 4))
-    plt.ylabel('Number of Deaths')
-    plt.ylim(0, 53000 + 20000)
-    plt.title('Weekly Deaths Simulation')
-    plt.gca().yaxis.set_minor_locator(AutoMinorLocator(10))
-    plt.gca().tick_params(which='both')
-    
- 
     b = widgets.Button(
         description='Simulate weekly deaths',
         layout={'width': '200px'}
     )
     
-    output = widgets.Output()
+    total_pop = 350000000
     expected_deaths = 53000
-    b.on_click(plotMockWeeklyDeaths(output, expected_deaths))
-    display(b, output)
+    b.on_click(plotMockWeeklyDeaths(total_pop, expected_deaths))
+    display(b)
     
 ####### POST REVEAL #######
     
