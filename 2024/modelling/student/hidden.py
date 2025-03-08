@@ -95,7 +95,7 @@ def cosine_linear_widget():
         ax.plot(x, y)
         
         ax.set_xlabel('Time (days)')
-        ax.set_ylabel('Value')
+        ax.set_ylabel('Weekly deaths')
         ax.grid(True)
         fig.canvas.draw()
     
@@ -387,7 +387,7 @@ def plot_cos_lin_all(deviation):
 
     # Fill the deviation band area
     plt.xlabel('Time (days)')
-    plt.ylabel('Value')
+    plt.ylabel('Weekly deaths')
     plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
                          label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
     plt.legend()
@@ -420,7 +420,7 @@ def plot_tilted_band():
                          label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
         
         ax.set_xlabel('Time (days)')
-        ax.set_ylabel('Value')
+        ax.set_ylabel('Weekly deaths')
         ax.legend()
         ax.grid(True)
         fig.canvas.draw() 
@@ -489,9 +489,9 @@ def plotMockWeeklyDeaths(total_pop, expected_deaths):
         ax.bar(['Average', 'Actual random'], [expected_deaths, random_deaths], color=['grey', 'lightblue'])
         ax.text(1, random_deaths + 2000, f'{random_deaths}', ha='center')
         ax.text(0, expected_deaths + 2000, f'{expected_deaths}', ha='center')
-        ax.set_ylabel('Number of Deaths')
+        ax.set_ylabel('Number of deaths')
         ax.set_ylim(0, expected_deaths + 20000)
-        ax.title(f'Weekly Deaths Simulation (expected average is {expected_deaths})')
+        ax.title(f'Weekly deaths simulation (expected average is {expected_deaths})')
         ax.yaxis.set_minor_locator(AutoMinorLocator(10))
         ax.tick_params(which='both')
         fig.canvas.draw()
@@ -523,7 +523,7 @@ def plotAllData():
     plt.axvline(x=x_cutoff, color='black', linestyle='--', label='Boundary between modelled data and new data', zorder=-1)
 
     plt.xlabel('Time (days)')
-    plt.ylabel('Value')
+    plt.ylabel('Weekly deaths')
     plt.legend()
     plt.show()
     
@@ -536,7 +536,6 @@ def plotMonths():
   
     model_ydata = tilted_cosine(all_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
     plt.plot(xdata_trunc, model_ydata[:truc_cutoff], color="black", label='Model')
-
     
     start_date = pd.to_datetime('2015-01-10')
     
@@ -557,7 +556,7 @@ def plotMonths():
     plt.xticks(ticks=tick_positions, labels=x_labels, rotation=45)
 
     plt.xlabel('Time (days)')
-    plt.ylabel('Value')
+    plt.ylabel('Weekly deaths')
     plt.legend()
     plt.show() 
 
