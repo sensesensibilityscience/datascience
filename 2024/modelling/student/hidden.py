@@ -96,6 +96,7 @@ def cosine_linear_widget():
         
         ax.set_xlabel('Time (days)')
         ax.set_ylabel('Weekly deaths')
+        ax.set_ylim(4e4, 7e4)
         ax.grid(True)
         fig.canvas.draw()
     
@@ -103,7 +104,7 @@ def cosine_linear_widget():
     A_slider = FloatSlider(min=0, max=10000, step=10, readout_format='.0f', description='A')
     T_slider = FloatSlider(min=1, max=500, step=1, readout_format='.0f', description='T')
     x0_slider = FloatSlider(min=-50, max=50, step=0.1, readout_format='.1f', description='x0')
-    D_slider = FloatSlider(min=30000, max=75000, step=1, readout_format='.0f', description='C')
+    D_slider = FloatSlider(min=5e4, max=7.5e4, step=1, readout_format='.0f', description='C')
     B_slider = FloatSlider(min=-5, max=5, step=0.1, readout_format='.1f', description='B')
 
     interact(plot_cos_lin, A=A_slider, T=T_slider, C=x0_slider, D=D_slider, linear_B=B_slider)
@@ -111,7 +112,7 @@ def cosine_linear_widget():
 def linear_widget():
     fig, ax = plt.subplots(figsize=(10, 4))
     slope_init = 0.
-    intercept_init = 30000.
+    intercept_init = 5e4
     
     def plot_linear(slope, intercept):
         yfit = slope * xdata + intercept
@@ -119,13 +120,14 @@ def linear_widget():
         ax.scatter(xdata, ydata, alpha=0.5)
         ax.plot(xdata, yfit, label=f'Fitted model: y = {slope:.2f}x + {intercept:.0f}')
         ax.legend()
+        ax.set_ylim(4e4, 7e4)
         ax.set_xlabel('Time (units unknown)')
         ax.set_ylabel('Value')
         fig.canvas.draw()
 
     interact(plot_linear,
         slope=FloatSlider(value=slope_init, min=-5.0, max=5.0, step=0.01, description='Slope'),
-        intercept=IntSlider(value=intercept_init, min=30000, max=70000, step=10.0, description='Vertical shift')
+        intercept=IntSlider(value=intercept_init, min=4e4, max=7e4, step=10.0, description='Vertical shift')
         )
 
 def get_pre_lab_data(start, stop):
@@ -336,6 +338,7 @@ def plot_lin_band():
         ax.legend()
         ax.set_xlabel('Time (units unknown)')
         ax.set_ylabel('Value')
+        ax.set_ylim(4e4, 7e4)
         ax.grid(True)
         fig.canvas.draw() 
         
@@ -421,6 +424,7 @@ def plot_tilted_band():
         
         ax.set_xlabel('Time (days)')
         ax.set_ylabel('Weekly deaths')
+        ax.set_ylim(4e4, 7e4)
         ax.legend()
         ax.grid(True)
         fig.canvas.draw() 
@@ -491,7 +495,7 @@ def plotMockWeeklyDeaths(total_pop, expected_deaths):
         ax.text(0, expected_deaths + 2000, f'{expected_deaths}', ha='center')
         ax.set_ylabel('Number of deaths')
         ax.set_ylim(0, expected_deaths + 20000)
-        ax.title(f'Weekly deaths simulation (expected average is {expected_deaths})')
+        ax.set_title(f'Weekly deaths simulation (expected average is {expected_deaths})')
         ax.yaxis.set_minor_locator(AutoMinorLocator(10))
         ax.tick_params(which='both')
         fig.canvas.draw()
@@ -558,6 +562,7 @@ def plotMonths():
     plt.xlabel('Time (days)')
     plt.ylabel('Weekly deaths')
     plt.legend()
+    plt.tight_layout()
     plt.show() 
 
     
