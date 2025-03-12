@@ -13,9 +13,9 @@ from datetime import datetime, timedelta
 from IPython.display import display
 
 '''
-Write in tips on the few things that need to be edited. 
-1. If you want to chnage magic number. 
-2. Make sure nothing is hard coded 
+Write in tips on the few things that need to be edited.
+1. If you want to chnage magic number.
+2. Make sure nothing is hard coded
 
 '''
 
@@ -38,13 +38,13 @@ def tilted_cosine(x, A, T, x0, B, C):
 
 # crop data
 excessdeaths = pd.read_csv("weekly_counts_of_deaths_cleaned.csv")
-excessdeaths['Week Ending Date'] = pd.to_datetime(excessdeaths['Week Ending Date'])    
+excessdeaths['Week Ending Date'] = pd.to_datetime(excessdeaths['Week Ending Date'])
 end_of_2019 = pd.to_datetime('2020-01-01')
 excessdeaths_2015_to_2019 = excessdeaths[excessdeaths["Week Ending Date"] < end_of_2019]
-    
+
 # shortened data
 xdata = (excessdeaths_2015_to_2019['Week Ending Date'] - excessdeaths_2015_to_2019['Week Ending Date'].min()).dt.days
-ydata = excessdeaths_2015_to_2019['Number of Deaths'].values 
+ydata = excessdeaths_2015_to_2019['Number of Deaths'].values
 xdata = np.asarray(xdata)
 ydata = np.asarray(ydata)
 training_xdata_cutoff = len(xdata) # renamed from threshold_cutoff
@@ -55,16 +55,16 @@ m_fit, c_fit = popt
 
 # all data
 all_xdata = (excessdeaths['Week Ending Date'] - excessdeaths['Week Ending Date'].min()).dt.days
-all_ydata = excessdeaths['Number of Deaths'].values 
+all_ydata = excessdeaths['Number of Deaths'].values
 all_xdata = np.asarray(all_xdata)
 all_ydata = np.asarray(all_ydata)
 all_y_fit = linear_model(all_xdata, m_fit, c_fit)
 
-# shortened data with two extra points; for investigating threshold 
+# shortened data with two extra points; for investigating threshold
 last_point_threshold = pd.to_datetime('2020-04-15')
 excessdeaths_threshold = excessdeaths[excessdeaths["Week Ending Date"] < last_point_threshold]
 threshold_xdata = (excessdeaths_threshold['Week Ending Date'] - excessdeaths_threshold['Week Ending Date'].min()).dt.days
-threshold_ydata = excessdeaths_threshold['Number of Deaths'].values 
+threshold_ydata = excessdeaths_threshold['Number of Deaths'].values
 threshold_xdata = np.asarray(threshold_xdata)
 threshold_ydata = np.asarray(threshold_ydata)
 threshold_y_fit = linear_model(threshold_xdata, m_fit, c_fit)
@@ -74,7 +74,7 @@ right_lim = 140
 left_lim = 75
 all_data_linear_fit = [0, 0]
 
-# dataframe with x, y for student view 
+# dataframe with x, y for student view
 timeseries_data = pd.DataFrame({
     'time': xdata,
     'value': ydata
@@ -84,7 +84,7 @@ parameters = []
 
 ####### MODEL PARAMTER WIDGETS #######
 
-def cosine_linear_widget():  
+def cosine_linear_widget():
     fig, ax = plt.subplots(figsize=(10, 4))
     x = np.linspace(0, 1800, 200)
     
@@ -134,24 +134,24 @@ def get_pre_lab_data(start, stop):
     x = xdata[start:stop]
     y = ydata[start:stop]
     
-    #setting scales to start at 0 
+    #setting scales to start at 0
     x_min = np.min(x)
     y_min = np.min(y)
     return (x), (y)
 
 def fit_pre_lab_models():
-    x, y = get_pre_lab_data(left_lim, right_lim) 
+    x, y = get_pre_lab_data(left_lim, right_lim)
     
     # gaussian initial guesses
     a_gauss = max(y)
     b_gauss = x[np.argmax(y)]
-    c_gauss = (max(x) - min(x)) / 4 
+    c_gauss = (max(x) - min(x)) / 4
     d_gauss = min(y)
 
     # cosine initial guesses
     a_cosine = (max(y) - min(y)) / 2
-    b_cosine = 2 * np.pi / (x[-1] - x[0])  
-    c_cosine = 0  
+    b_cosine = 2 * np.pi / (x[-1] - x[0])
+    c_cosine = 0
     d_cosine = np.mean(y)
 
     # fitting
@@ -208,8 +208,8 @@ def fits(start, stop):
 
     # cosine initial guesses
     a_cosine = (max(y) - min(y)) / 2
-    b_cosine = 2 * np.pi / (x[-1] - x[0])  
-    c_cosine = 0  
+    b_cosine = 2 * np.pi / (x[-1] - x[0])
+    c_cosine = 0
     d_cosine = np.mean(y)
 
     # fitting
@@ -239,7 +239,7 @@ def expanded_plot():
     axs[0, 0].set_xlabel('Time')
     axs[0, 0].set_ylabel('Value')
     axs[0, 0].set_ylim(40000, 70000)
-    axs[0, 0].axvspan(280, 525, color='gray', alpha=0.1)  # change these value to by dynamic / non-magic numbers 
+    axs[0, 0].axvspan(280, 525, color='gray', alpha=0.1) # change these value to by dynamic / non-magic numbers
 
     
     axs[0, 1].plot(x_plot, y_plot, 'o')
@@ -248,7 +248,7 @@ def expanded_plot():
     axs[0, 1].set_xlabel('Time')
     axs[0, 1].set_ylabel('Value')
     axs[0, 1].set_ylim(40000, 70000)
-    axs[0, 1].axvspan(280, 525, color='gray', alpha=0.1) 
+    axs[0, 1].axvspan(280, 525, color='gray', alpha=0.1)
 
     
     axs[1, 0].plot(x_plot, y_plot, 'o')
@@ -289,10 +289,10 @@ def plot_linear_cosine(extension_periods=2):
     axs[0].plot(x_fit_expanded, y_linear_fit, '-', label='Linear Fit', color='tab:orange')
     axs[1].plot(x_fit_expanded, y_cosine_fit, '-', label='Cosine Fit', color='tab:orange')
 
-    axs[0].set_xlim(min(x_plot), 1500) 
+    axs[0].set_xlim(min(x_plot), 1500)
     axs[1].set_xlim(min(x_plot), 1500)
-    axs[0].set_ylim(40000, 70000) 
-    axs[1].set_ylim(40000, 70000) 
+    axs[0].set_ylim(40000, 70000)
+    axs[1].set_ylim(40000, 70000)
 
     axs[0].set_xlabel('Time')
     axs[0].set_ylabel('Value')
@@ -362,7 +362,7 @@ def plot_cos_lin_all(deviation):
     
     # change y data for tilter cosine model
     popt, _ = curve_fit(tilted_cosine, xdata, ydata, p0=[max(ydata) - min(ydata), 365, 0, 0, np.mean(ydata)])
-    A_fit, T_fit, x0_fit, B_fit, C_fit = popt  
+    A_fit, T_fit, x0_fit, B_fit, C_fit = popt
     threshold_y_fit_cos_lin = tilted_cosine(threshold_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
     residuals = np.abs(threshold_ydata - threshold_y_fit_cos_lin)
 
@@ -385,14 +385,14 @@ def plot_cos_lin_all(deviation):
     # Add annotations of points for students to estimate threshold point
     for time in [1904, 1911, 1918]:
         index = list(threshold_xdata).index(time)
-        plt.text(threshold_xdata[index], threshold_ydata[index], f'({threshold_xdata[index]}, {threshold_ydata[index]:.2f})', 
+        plt.text(threshold_xdata[index], threshold_ydata[index], f'({threshold_xdata[index]}, {threshold_ydata[index]:.2f})',
                 fontsize=9, ha='right')
 
     # Fill the deviation band area
     plt.xlabel('Time (days)')
     plt.ylabel('Weekly deaths')
-    plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
-                         label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
+    plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3,
+                         label=f'Band covers ±{deviation} ({percent_within_band}% points)')
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -420,14 +420,14 @@ def plot_tilted_band():
         ax.plot(xdata, y_fit, label=f'Tilted Cosine Fit\n(y = {A_fit:.0f}cos(2π/{T_fit:.0f}(x - {x0_fit:.2f})) + {B_fit:.2f}x + {C_fit:.0f})', color='black')
 
         ax.fill_between(xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
-                         label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
+                         label=f'Band covers ±{deviation} ({percent_within_band}% points)')
         
         ax.set_xlabel('Time (days)')
         ax.set_ylabel('Weekly deaths')
         ax.set_ylim(4e4, 7e4)
         ax.legend()
         ax.grid(True)
-        fig.canvas.draw() 
+        fig.canvas.draw()
 
     deviation_slider = widgets.IntSlider(value=1.0, min=0, max=15000, step=10, description='± deviation from model')
     interact(plot_tilted_cosine_ci, deviation=deviation_slider)
@@ -453,7 +453,7 @@ def plot_lin_all(deviation):
     # add annotations of points for students to estimate threshold point
     for time in [1904, 1911, 1918]:
         index = list(threshold_xdata).index(time)
-        plt.text(threshold_xdata[index], threshold_ydata[index], f'({threshold_xdata[index]}, {threshold_ydata[index]:.0f})', 
+        plt.text(threshold_xdata[index], threshold_ydata[index], f'({threshold_xdata[index]}, {threshold_ydata[index]:.0f})',
                 fontsize=9, ha='right')
 
     x_cutoff = threshold_xdata[training_xdata_cutoff]
@@ -462,8 +462,8 @@ def plot_lin_all(deviation):
     # Fill the deviation band area
     plt.xlabel('Time (units unknown)')
     plt.ylabel('Value')
-    plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3, 
-                         label=f'Band covers ±{deviation} ({percent_within_band}% points)')  
+    plt.fill_between(threshold_xdata, lower_bound, upper_bound, color='grey', alpha=0.3,
+                         label=f'Band covers ±{deviation} ({percent_within_band}% points)')
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -522,7 +522,14 @@ def plotAllData():
     plt.plot(all_xdata[post_points], all_ydata[post_points], '.', color='red', label='Post signal (COVID Period)')
     model_ydata = tilted_cosine(all_xdata, A_fit, T_fit, x0_fit, B_fit, C_fit)
     plt.plot(all_xdata, model_ydata, color="black", label='Model')
-    
+
+    deviation = 3000 # covers 95%
+    lower_bound = model_ydata - deviation
+    upper_bound = model_ydata + deviation
+
+    plt.fill_between(all_xdata, lower_bound, upper_bound, color='grey', alpha=0.3,
+                         label=f'Band covers ±{deviation}')
+
     x_cutoff = threshold_xdata[training_xdata_cutoff]
     plt.axvline(x=x_cutoff, color='black', linestyle='--', label='Boundary between modelled data and new data', zorder=-1)
 
@@ -551,7 +558,7 @@ def plotMonths():
     end_date = start_date + pd.Timedelta(days=total_days - 1)
 
     for year in range(start_date.year, end_date.year + 1):
-        for month in range(1, 13):  # Iterate through all months (1 to 12)
+        for month in range(1, 13): # Iterate through all months (1 to 12)
             month_date = pd.to_datetime(f'{year}-{month:02d}-01')
             if (month_date - start_date).days >= 0 and (month_date - start_date).days < total_days:
                 x_labels.append(month_date.strftime('%b %Y'))
@@ -563,9 +570,9 @@ def plotMonths():
     plt.ylabel('Weekly deaths')
     plt.legend()
     plt.tight_layout()
-    plt.show() 
+    plt.show()
 
-    
+
 ####### ALL DATA #######
-  
+
 
